@@ -6,11 +6,14 @@ const TelegramBot = require("node-telegram-bot-api");
 const OpenAI = require("openai");
 const fs = require("fs");
 const https = require("https");
+const { createClient } = require('@supabase/supabase-js');
 
 // Get environment variables
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const ASSISTANT_ID = process.env.ASSISTANT_ID;
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
 
 // Initialize OpenAI client
 const openai = new OpenAI({
@@ -19,6 +22,9 @@ const openai = new OpenAI({
 
 // Initialize Telegram bot with polling
 const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: true });
+
+// Initialize Supabase client
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // Store user conversations and meals
 const userThreads = new Map();
@@ -149,39 +155,66 @@ async function processMessageWithAI(threadId, content, isImage = false) {
   }
 }
 
-// Save meal information for a user
-function saveMealForUser(userId, mealInfo) {
-  if (!userMeals.has(userId)) {
-    userMeals.set(userId, []);
+// Modify saveMealForUser function to use Supabase
+async function saveMealForUser(userId, mealInfo) {
+  try {
+    const { data, error } = await supabase
+      .from('meals')
+      .insert([
+        {
+          user_id: userId,
+          info: mealInfo,
+          created_at: new Date().toISOString()
+        }
+      ]);
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error saving meal to Supabase:', error);
+    throw error;
   }
-
-  const meals = userMeals.get(userId);
-
-  meals.push({
-    timestamp: new Date(),
-    info: mealInfo,
-  });
 }
 
-// Get daily summary of meals for a user
-function getDailySummary(userId) {
-  if (!userMeals.has(userId) || userMeals.get(userId).length === 0) {
-    return "No has registrado comidas hoy.";
+// Modify getDailySummary function to use Supabase
+async function getDailySummary(userId) {
+  try {
+    // Get today's date at midnight
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const { data, error } = await supabase
+      .from('meals')
+      .select('*')
+      .eq('user_id', userId)
+      .gte('created_at', today.toISOString())
+      .order('created_at', { ascending: true });
+
+    if (error) throw error;
+
+    if (!data || data.length === 0) {
+      return "No has registrado comidas hoy.";
+    }
+
+    let summary = "📋 Resumen del día:\n\n";
+
+    data.forEach((meal, index) => {
+      const mealTime = new Date(meal.created_at).toLocaleTimeString();
+      summary += `🕐 Comida ${index + 1} (${mealTime}):\n${meal.info}\n\n`;
+    });
+
+    // Opcional: Borrar las comidas después de mostrar el resumen
+    // await supabase
+    //   .from('meals')
+    //   .delete()
+    //   .eq('user_id', userId)
+    //   .gte('created_at', today.toISOString());
+
+    return summary;
+  } catch (error) {
+    console.error('Error getting daily summary from Supabase:', error);
+    return "Error al obtener el resumen diario.";
   }
-
-  const meals = userMeals.get(userId);
-
-  let summary = "📋 Resumen del día:\n\n";
-
-  meals.forEach((meal, index) => {
-    summary += `🕐 Comida ${
-      index + 1
-    } (${meal.timestamp.toLocaleTimeString()}):\n${meal.info}\n\n`;
-  });
-
-  userMeals.set(userId, []);
-
-  return summary;
 }
 
 // Handle incoming messages
@@ -208,7 +241,7 @@ bot.on("message", async (msg) => {
     }
 
     if (msg.text === "Terminar el día") {
-      const summary = getDailySummary(userId);
+      const summary = await getDailySummary(userId);
       bot.sendMessage(chatId, summary);
       return;
     }
@@ -262,7 +295,7 @@ bot.on("message", async (msg) => {
     }
 
     if (response && shouldAnalyze) {
-      saveMealForUser(userId, response);
+      await saveMealForUser(userId, response);
 
       bot.sendMessage(chatId, response);
     }
