@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "start": "node api/webhook.js",
+    "start": "node dist/api/webhook.js",
     "build": "tsc"
   },
   "dependencies": {
@@ -11,8 +11,7 @@
     "@vercel/node": "^3.0.0"
   },
   "devDependencies": {
-    "@types/node": "^22.13.10",
-    "@vercel/node": "^5.1.12",
+    "@types/node": "^20.13.10",
     "typescript": "^5.0.0"
   }
 }

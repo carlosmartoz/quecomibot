@@ -6,6 +6,9 @@
       "rootDir": "./",
       "strict": true,
       "esModuleInterop": true,
-      "skipLibCheck": true
-    }
+      "skipLibCheck": true,
+      "moduleResolution": "node"
+    },
+    "include": ["api/**/*"],
+    "exclude": ["node_modules"]
   }
