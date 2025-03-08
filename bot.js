@@ -24,11 +24,8 @@ const openai = new OpenAI({
   apiKey: OPENAI_API_KEY,
 });
 
-// Initialize Telegram bot with polling
+// For development, polling is easier to use
 const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: true });
-
-// Set webhook for the bot
-bot.setWebHook(`${WEBHOOK_URL}/bot${TELEGRAM_TOKEN}`);
 
 // Store user conversations and meals
 const userThreads = new Map();
@@ -356,7 +353,7 @@ bot.on("message", async (msg) => {
       );
 
       response = await processMessageWithAI(threadId, transcription);
-    } else if (msg.text) {
+    } else if (msg.text && msg.text !== "/start" && msg.text !== "Terminar el día" && msg.text.toLowerCase() !== "resumen") {
       shouldAnalyze = true;
 
       bot.sendMessage(
@@ -368,7 +365,8 @@ bot.on("message", async (msg) => {
     }
 
     if (response && shouldAnalyze) {
-      saveMealForUser(userId, response);
+      // Only save the AI-processed response
+      await saveMealForUser(userId, response);
 
       bot.sendMessage(chatId, response);
     }
