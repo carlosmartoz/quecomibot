@@ -311,3 +311,6 @@ bot.on("message", async (msg) => {
 
 // Log bot startup
 console.log("🤖 QueComí Started...");
+
+// branch test
+console.log("🤖 QueComí 'add-supabase' Started...");
