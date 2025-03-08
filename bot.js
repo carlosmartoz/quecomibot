@@ -6,7 +6,7 @@ const TelegramBot = require("node-telegram-bot-api");
 const OpenAI = require("openai");
 const fs = require("fs");
 const https = require("https");
-const { createClient } = require('@supabase/supabase-js');
+const { createClient } = require("@supabase/supabase-js");
 
 // Get environment variables
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
@@ -151,27 +151,25 @@ async function processMessageWithAI(threadId, content, isImage = false) {
   } catch (error) {
     console.error("Error processing message with AI:", error);
 
-    return "¡Ups! 🙈 Parece que mi cerebro nutricional está haciendo una pequeña siesta digestiva 😴. ¿Podrías intentarlo de nuevo en un momento? ¡Prometo estar más despierto! 🌟";
+    return "¡Ups! 🙈 Parece que mi cerebro nutricional está haciendo una pequeña siesta digestiva 😴. \n\n ¿Podrías intentarlo de nuevo en un momento? ¡Prometo estar más despierto! 🌟";
   }
 }
 
 // Modify saveMealForUser function to use Supabase
 async function saveMealForUser(userId, mealInfo) {
   try {
-    const { data, error } = await supabase
-      .from('meals')
-      .insert([
-        {
-          user_id: userId,
-          info: mealInfo,
-          created_at: new Date().toISOString()
-        }
-      ]);
+    const { data, error } = await supabase.from("meals").insert([
+      {
+        user_id: userId,
+        info: mealInfo,
+        created_at: new Date().toISOString(),
+      },
+    ]);
 
     if (error) throw error;
     return data;
   } catch (error) {
-    console.error('Error saving meal to Supabase:', error);
+    console.error("Error saving meal to Supabase:", error);
     throw error;
   }
 }
@@ -184,11 +182,11 @@ async function getDailySummary(userId) {
     today.setHours(0, 0, 0, 0);
 
     const { data, error } = await supabase
-      .from('meals')
-      .select('*')
-      .eq('user_id', userId)
-      .gte('created_at', today.toISOString())
-      .order('created_at', { ascending: true });
+      .from("meals")
+      .select("*")
+      .eq("user_id", userId)
+      .gte("created_at", today.toISOString())
+      .order("created_at", { ascending: true });
 
     if (error) throw error;
 
@@ -212,7 +210,7 @@ async function getDailySummary(userId) {
 
     return summary;
   } catch (error) {
-    console.error('Error getting daily summary from Supabase:', error);
+    console.error("Error getting daily summary from Supabase:", error);
     return "Error al obtener el resumen diario.";
   }
 }
@@ -304,7 +302,7 @@ bot.on("message", async (msg) => {
 
     bot.sendMessage(
       chatId,
-      "¡Ups! 🙈 Parece que mi cerebro nutricional está haciendo una pequeña siesta digestiva 😴. ¿Podrías intentarlo de nuevo en un momento? ¡Prometo estar más despierto! 🌟"
+      "¡Ups! 🙈 Parece que mi cerebro nutricional está haciendo una pequeña siesta digestiva 😴. \n\n ¿Podrías intentarlo de nuevo en un momento? ¡Prometo estar más despierto! 🌟"
     );
   }
 });
