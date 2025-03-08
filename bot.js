@@ -270,10 +270,11 @@ bot.on("message", async (msg) => {
   }
 });
 
-// Fake server to keep Render from complaining
+// Create a fake server to keep Render from complaining
 const PORT = process.env.PORT || 3000;
 
-http
+// Create a fake server to keep Render from complaining
+https
   .createServer((req, res) => {
     res.write("QueComí is running...");
 
