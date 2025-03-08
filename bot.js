@@ -94,7 +94,18 @@ async function processMessageWithAI(threadId, content, isImage = false) {
         content: [
           {
             type: "text",
-            text: "Analiza esta imagen de comida y proporciona las calorías aproximadas y macronutrientes. Si ves varios alimentos, lista cada uno por separado.",
+            text: `Analiza esta imagen de comida y proporciona las calorías aproximadas y macronutrientes.
+
+Si hay múltiples alimentos en la imagen, enuméralos por separado con números (1., 2., etc.) y proporciona las calorías y macronutrientes para CADA UNO individualmente.
+
+Para cada alimento, usa este formato exacto:
+🍽️ Plato: [nombre del alimento]
+
+📊 Estimación nutricional:
+• Calorías: [valor] kcal
+• Proteínas: [valor]g
+• Carbohidratos: [valor]g
+• Grasas: [valor]g`,
           },
           {
             type: "image_url",
@@ -107,7 +118,20 @@ async function processMessageWithAI(threadId, content, isImage = false) {
     } else {
       await openai.beta.threads.messages.create(threadId, {
         role: "user",
-        content: `Analiza el siguiente mensaje y extrae los alimentos mencionados, ignorando verbos como "desayuné", "almorcé", "comí", "cené", etc. Proporciona las calorías aproximadas y macronutrientes para: ${content}`,
+        content: `Analiza el siguiente mensaje y extrae los alimentos mencionados, ignorando verbos como "desayuné", "almorcé", "comí", "cené", etc. 
+        
+Si hay múltiples alimentos, enuméralos por separado con números (1., 2., etc.) y proporciona las calorías y macronutrientes para CADA UNO individualmente.
+
+Para cada alimento, usa este formato exacto:
+🍽️ Plato: [nombre del alimento]
+
+📊 Estimación nutricional:
+• Calorías: [valor] kcal
+• Proteínas: [valor]g
+• Carbohidratos: [valor]g
+• Grasas: [valor]g
+
+Alimentos a analizar: ${content}`,
       });
     }
 
@@ -165,60 +189,109 @@ async function saveMealForUser(userId, mealInfo) {
     info: mealInfo,
   });
   
-  // Extract meal data from the formatted string
   try {
-    // Extract description (the dish name)
-    let description = "";
+    // Check if the response contains multiple food items
+    // Split the response by food item sections
+    const foodSections = [];
     
-    // Try to match with the "🍽️ Plato:" prefix first
-    const descriptionMatch = mealInfo.match(/🍽️ Plato: (.*?)(\n|$)/);
-    if (descriptionMatch) {
-      description = descriptionMatch[1].trim();
-    } else {
-      // If no match, try to get the first line of the response as the dish name
-      const firstLineMatch = mealInfo.split('\n')[0];
-      if (firstLineMatch) {
-        // Remove any emoji or prefix if present
-        description = firstLineMatch.replace(/^[^a-zA-ZáéíóúÁÉÍÓÚñÑ]*/, '').trim();
-      }
-    }
-    
-    // Don't save if we couldn't extract a proper description
-    if (!description) {
-      console.log("Skipping saving meal with empty description");
-      return;
-    }
-
-    // Extract nutritional values
-    const kcalMatch = mealInfo.match(/Calorías: ([\d.]+) kcal/);
-    const proteinMatch = mealInfo.match(/Proteínas: ([\d.]+)g/);
-    const carbsMatch = mealInfo.match(/Carbohidratos: ([\d.]+)g/);
-    const fatMatch = mealInfo.match(/Grasas: ([\d.]+)g/);
-
-    const kcal = kcalMatch ? kcalMatch[1] : "";
-    const protein = proteinMatch ? proteinMatch[1] : "";
-    const carbohydrates = carbsMatch ? carbsMatch[1] : "";
-    const fat = fatMatch ? fatMatch[1] : "";
-
-    // Save to Supabase
-    const { data, error } = await supabase
-      .from('meals')
-      .insert([
-        { 
-          user_id: userId,
-          description: description,
-          created_at: new Date().toISOString(), // Supabase will store this in UTC
-          kcal: kcal,
-          protein: protein,
-          fat: fat,
-          carbohydrates: carbohydrates
+    // First, try to split by multiple "🍽️ Plato:" sections
+    if (mealInfo.includes("🍽️ Plato:") && mealInfo.split("🍽️ Plato:").length > 2) {
+      // Multiple "Plato" sections found
+      const sections = mealInfo.split("🍽️ Plato:");
+      // Skip the first empty element
+      for (let i = 1; i < sections.length; i++) {
+        if (sections[i].trim()) {
+          foodSections.push("🍽️ Plato:" + sections[i]);
         }
-      ]);
+      }
+    } 
+    // If no multiple sections found, check if there are numbered items
+    else if (mealInfo.match(/\d+\.\s+/)) {
+      // Split by numbered items (1., 2., etc.)
+      const lines = mealInfo.split('\n');
+      let currentSection = "";
+      let inSection = false;
+      
+      for (const line of lines) {
+        // If line starts with a number followed by a dot, it's a new section
+        if (line.match(/^\d+\.\s+/)) {
+          if (inSection && currentSection.trim()) {
+            foodSections.push(currentSection.trim());
+          }
+          currentSection = line + '\n';
+          inSection = true;
+        } else if (inSection) {
+          currentSection += line + '\n';
+        }
+      }
+      
+      // Add the last section
+      if (inSection && currentSection.trim()) {
+        foodSections.push(currentSection.trim());
+      }
+    } 
+    // If no structured format is found, treat the whole response as one item
+    else {
+      foodSections.push(mealInfo);
+    }
+    
+    // Process each food section
+    for (const section of foodSections) {
+      // Extract description (the dish name)
+      let description = "";
+      
+      // Try to match with the "🍽️ Plato:" prefix first
+      const descriptionMatch = section.match(/🍽️ Plato: (.*?)(\n|$)/);
+      if (descriptionMatch) {
+        description = descriptionMatch[1].trim();
+      } else {
+        // If no match, try to get the first line of the section as the dish name
+        const firstLineMatch = section.split('\n')[0];
+        if (firstLineMatch) {
+          // Remove any emoji, numbers, or prefix if present
+          description = firstLineMatch.replace(/^[^a-zA-ZáéíóúÁÉÍÓÚñÑ]*/, '').trim();
+          // Remove any trailing punctuation
+          description = description.replace(/[.:,;]$/, '').trim();
+        }
+      }
+      
+      // Don't save if we couldn't extract a proper description
+      if (!description) {
+        console.log("Skipping saving meal with empty description");
+        continue;
+      }
 
-    if (error) {
-      console.error("Error saving meal to database:", error);
-    } else {
-      console.log("Meal saved successfully:", data);
+      // Extract nutritional values for this section
+      const kcalMatch = section.match(/Calorías: ([\d.]+) kcal/);
+      const proteinMatch = section.match(/Proteínas: ([\d.]+)g/);
+      const carbsMatch = section.match(/Carbohidratos: ([\d.]+)g/);
+      const fatMatch = section.match(/Grasas: ([\d.]+)g/);
+
+      const kcal = kcalMatch ? kcalMatch[1] : "";
+      const protein = proteinMatch ? proteinMatch[1] : "";
+      const carbohydrates = carbsMatch ? carbsMatch[1] : "";
+      const fat = fatMatch ? fatMatch[1] : "";
+
+      // Save to Supabase
+      const { data, error } = await supabase
+        .from('meals')
+        .insert([
+          { 
+            user_id: userId,
+            description: description,
+            created_at: new Date().toISOString(), // Supabase will store this in UTC
+            kcal: kcal,
+            protein: protein,
+            fat: fat,
+            carbohydrates: carbohydrates
+          }
+        ]);
+
+      if (error) {
+        console.error("Error saving meal to database:", error);
+      } else {
+        console.log("Meal saved successfully:", data);
+      }
     }
   } catch (error) {
     console.error("Error parsing or saving meal data:", error);
