@@ -1,32 +1,43 @@
+// Load environment variables
 require("dotenv").config();
+
+// Import required dependencies
 const TelegramBot = require("node-telegram-bot-api");
 const OpenAI = require("openai");
 const fs = require("fs");
 const https = require("https");
 
+// Get environment variables
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const ASSISTANT_ID = process.env.ASSISTANT_ID;
 
+// Initialize OpenAI client
 const openai = new OpenAI({
   apiKey: OPENAI_API_KEY,
 });
 
+// Initialize Telegram bot with polling
 const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: true });
 
-// Almacena las conversaciones y comidas de los usuarios
+// Store user conversations and meals
 const userThreads = new Map();
 const userMeals = new Map();
 
+// Get existing thread for user or create new one
 async function getOrCreateThread(userId) {
   if (!userThreads.has(userId)) {
     const thread = await openai.beta.threads.create();
+
     userThreads.set(userId, thread.id);
+
     userMeals.set(userId, []);
   }
+
   return userThreads.get(userId);
 }
 
+// Download image from URL and return as buffer
 async function downloadImage(url) {
   return new Promise((resolve, reject) => {
     https.get(url, (response) => {
@@ -38,6 +49,7 @@ async function downloadImage(url) {
   });
 }
 
+// Download file from Telegram and return as buffer
 async function downloadFile(fileLink) {
   return new Promise((resolve, reject) => {
     https.get(fileLink, (response) => {
@@ -49,6 +61,7 @@ async function downloadFile(fileLink) {
   });
 }
 
+// Transcribe audio file using OpenAI Whisper API
 async function transcribeAudio(audioBuffer) {
   try {
     const tempFilePath = `temp_${Date.now()}.ogg`;
@@ -59,18 +72,21 @@ async function transcribeAudio(audioBuffer) {
       model: "whisper-1",
     });
 
-    // Limpiar el archivo temporal
+    // Clean up temporary file
     fs.unlinkSync(tempFilePath);
+
     return transcription.text;
   } catch (error) {
-    console.error("Error transcribiendo audio:", error);
+    console.error("Error transcribing audio:", error);
+
     throw error;
   }
 }
 
+// Process message with OpenAI Assistant
 async function processMessageWithAI(threadId, content, isImage = false) {
   try {
-    // Crear el mensaje en el thread
+    // Create message in thread
     if (isImage) {
       await openai.beta.threads.messages.create(threadId, {
         role: "user",
@@ -88,80 +104,97 @@ async function processMessageWithAI(threadId, content, isImage = false) {
         ],
       });
     } else {
-      // Modificar el prompt para manejar mejor las descripciones de comidas
+      // Modify prompt to better handle food descriptions
       await openai.beta.threads.messages.create(threadId, {
         role: "user",
         content: `Analiza el siguiente mensaje y extrae los alimentos mencionados, ignorando verbos como "desayuné", "almorcé", "comí", "cené", etc. Proporciona las calorías aproximadas y macronutrientes para: ${content}`,
       });
     }
 
-    // Ejecutar el asistente
+    // Run the assistant
     const run = await openai.beta.threads.runs.create(threadId, {
       assistant_id: ASSISTANT_ID,
     });
 
-    // Esperar a que el asistente termine de procesar
+    // Wait for assistant to finish processing
     let runStatus;
+
     do {
       const runStatusResponse = await openai.beta.threads.runs.retrieve(
         threadId,
         run.id
       );
+
       runStatus = runStatusResponse.status;
+
       if (runStatus === "failed" || runStatus === "expired") {
         throw new Error(`Run ended with status: ${runStatus}`);
       }
+
       if (runStatus !== "completed") {
         await new Promise((resolve) => setTimeout(resolve, 1000));
       }
     } while (runStatus !== "completed");
 
-    // Obtener los mensajes más recientes
+    // Get latest messages
     const messages = await openai.beta.threads.messages.list(threadId);
+
     const lastMessage = messages.data[0];
+
     return lastMessage.content[0].text.value;
   } catch (error) {
     console.error("Error processing message with AI:", error);
+
     return "¡Ups! 🙈 Parece que mi cerebro nutricional está haciendo una pequeña siesta digestiva 😴. ¿Podrías intentarlo de nuevo en un momento? ¡Prometo estar más despierto! 🌟";
   }
 }
 
+// Save meal information for a user
 function saveMealForUser(userId, mealInfo) {
   if (!userMeals.has(userId)) {
     userMeals.set(userId, []);
   }
+
   const meals = userMeals.get(userId);
+
   meals.push({
     timestamp: new Date(),
     info: mealInfo,
   });
 }
 
+// Get daily summary of meals for a user
 function getDailySummary(userId) {
   if (!userMeals.has(userId) || userMeals.get(userId).length === 0) {
     return "¡Vaya! 🤔 Parece que tu diario gastronómico está tan vacío como mi estómago antes del desayuno 🍳. ¡No has registrado ninguna comida hoy! ¿Qué tal si empezamos a llenar este registro con algo delicioso? 🌟";
   }
 
   const meals = userMeals.get(userId);
+
   let summary = "📋 Resumen del día:\n\n";
+
   meals.forEach((meal, index) => {
     summary += `🕐 Comida ${
       index + 1
     } (${meal.timestamp.toLocaleTimeString()}):\n${meal.info}\n\n`;
   });
 
-  // Limpiar el registro después de mostrar el resumen
+  // Clear log after showing summary
   userMeals.set(userId, []);
 
   return summary;
 }
 
+// Handle incoming messages
 bot.on("message", async (msg) => {
   const chatId = msg.chat.id;
+
   const userId = msg.from.id;
+
   const threadId = await getOrCreateThread(userId);
 
   try {
+    // Handle /start command
     if (msg.text === "/start") {
       bot.sendMessage(
         chatId,
@@ -176,6 +209,7 @@ bot.on("message", async (msg) => {
       return;
     }
 
+    // Handle end of day summary request
     if (msg.text === "Terminar el día") {
       const summary = getDailySummary(userId);
       bot.sendMessage(chatId, summary);
@@ -183,47 +217,65 @@ bot.on("message", async (msg) => {
     }
 
     let response;
+
     let shouldAnalyze = false;
 
+    // Handle photo messages
     if (msg.photo) {
       shouldAnalyze = true;
       bot.sendMessage(
         chatId,
         "🔍 ¡Detective gastronómico en acción! Analizando tu deliciosa comida... 🧐✨"
       );
+
       const photo = msg.photo[msg.photo.length - 1];
+
       const fileLink = await bot.getFileLink(photo.file_id);
+
       response = await processMessageWithAI(threadId, fileLink, true);
-    } else if (msg.voice) {
+    }
+    // Handle voice messages
+    else if (msg.voice) {
       shouldAnalyze = true;
+
       bot.sendMessage(
         chatId,
         "🎙️ ¡Escuchando atentamente tus palabras! Transformando tu audio en texto... ✨"
       );
+
       const fileLink = await bot.getFileLink(msg.voice.file_id);
+
       const audioBuffer = await downloadFile(fileLink);
+
       const transcription = await transcribeAudio(audioBuffer);
+
       bot.sendMessage(
         chatId,
         "🔍 ¡Detective gastronómico en acción! Analizando tu deliciosa comida... 🧐✨"
       );
       response = await processMessageWithAI(threadId, transcription);
-    } else if (msg.text) {
-      // Verificar si el texto está relacionado con comida usando el asistente
+    }
+    // Handle text messages
+    else if (msg.text) {
       shouldAnalyze = true;
+
       bot.sendMessage(
         chatId,
         "🔍 ¡Detective gastronómico en acción! Analizando tu deliciosa comida... 🧐✨"
       );
+
       response = await processMessageWithAI(threadId, msg.text);
     }
 
+    // Save and send response if analysis was performed
     if (response && shouldAnalyze) {
       saveMealForUser(userId, response);
+
       bot.sendMessage(chatId, response);
     }
   } catch (error) {
     console.error("Error:", error);
+
     bot.sendMessage(
       chatId,
       "¡Ups! 🙈 Parece que mi cerebro nutricional está haciendo una pequeña siesta digestiva 😴. ¿Podrías intentarlo de nuevo en un momento? ¡Prometo estar más despierto! 🌟"
@@ -231,4 +283,5 @@ bot.on("message", async (msg) => {
   }
 });
 
+// Log bot startup
 console.log("🤖 QueComí Started...");
