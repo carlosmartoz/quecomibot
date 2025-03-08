@@ -18,7 +18,7 @@ const openai = new OpenAI({
 });
 
 // Check if there is a previous instance running
-if (bot) {
+if (!bot) {
   console.log("🛑 Stopping previous instance...");
 
   bot.stopPolling();
