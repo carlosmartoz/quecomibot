@@ -9,7 +9,6 @@ const https = require("https");
 
 // Get environment variables
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
-const WEBHOOK_URL = process.env.WEBHOOK_URL;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const ASSISTANT_ID = process.env.ASSISTANT_ID;
 
@@ -18,11 +17,17 @@ const openai = new OpenAI({
   apiKey: OPENAI_API_KEY,
 });
 
-// Initialize Telegram bot with polling
-const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: true });
+let bot;
 
-// Set webhook for the bot
-bot.setWebHook(`${WEBHOOK_URL}/bot${TELEGRAM_TOKEN}`);
+// Check if there is a previous instance running
+if (bot) {
+  console.log("🛑 Stopping previous instance...");
+
+  bot.stopPolling();
+}
+
+// Initialize Telegram bot with polling
+bot = new TelegramBot(TELEGRAM_TOKEN, { polling: true });
 
 // Store user conversations and meals
 const userThreads = new Map();
