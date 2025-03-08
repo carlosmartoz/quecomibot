@@ -171,7 +171,7 @@ Mensaje a analizar: ${messageContent}`,
   }
 }
 
-// Modify parseNutritionInfo to validate response format
+// Modify parseNutritionInfo to separate description from nutritional values
 function parseNutritionInfo(response) {
   try {
     // Verificar si es un mensaje de error
@@ -180,7 +180,7 @@ function parseNutritionInfo(response) {
     }
 
     const nutritionInfo = {
-      description: response,
+      description: "",
       kcal: null,
       protein: null,
       fat: null,
@@ -198,30 +198,45 @@ function parseNutritionInfo(response) {
       throw new Error("Response does not have the required format");
     }
 
+    // Extraer el nombre del alimento
+    const foodMatch = response.match(/Alimento:\s*([^\n]+)/i);
+    if (!foodMatch) throw new Error("Missing food name");
+    nutritionInfo.description = foodMatch[1].trim();
+
     // Buscar calorías (kcal)
     const kcalMatch = response.match(/Calorías:\s*(\d+)\s*(?:kcal|calorías|cal)/i);
     if (!kcalMatch) throw new Error("Missing calories information");
-    nutritionInfo.kcal = kcalMatch[1];
+    nutritionInfo.kcal = parseInt(kcalMatch[1]);
 
     // Buscar proteínas
     const proteinMatch = response.match(/Proteínas:\s*(\d+(?:\.\d+)?)\s*g/i);
     if (!proteinMatch) throw new Error("Missing protein information");
-    nutritionInfo.protein = proteinMatch[1];
+    nutritionInfo.protein = parseFloat(proteinMatch[1]);
 
     // Buscar grasas
     const fatMatch = response.match(/Grasas:\s*(\d+(?:\.\d+)?)\s*g/i);
     if (!fatMatch) throw new Error("Missing fat information");
-    nutritionInfo.fat = fatMatch[1];
+    nutritionInfo.fat = parseFloat(fatMatch[1]);
 
     // Buscar carbohidratos
     const carbsMatch = response.match(/Carbohidratos:\s*(\d+(?:\.\d+)?)\s*g/i);
     if (!carbsMatch) throw new Error("Missing carbohydrates information");
-    nutritionInfo.carbohydrates = carbsMatch[1];
+    nutritionInfo.carbohydrates = parseFloat(carbsMatch[1]);
+
+    // Validar que todos los valores numéricos sean válidos
+    if (isNaN(nutritionInfo.kcal) || 
+        isNaN(nutritionInfo.protein) || 
+        isNaN(nutritionInfo.fat) || 
+        isNaN(nutritionInfo.carbohydrates)) {
+      throw new Error("Invalid numerical values");
+    }
+
+    console.log("Parsed nutrition info:", nutritionInfo); // Para debugging
 
     return nutritionInfo;
   } catch (error) {
     console.error("Error parsing nutrition info:", error);
-    return null; // Retornamos null en lugar de un objeto con valores nulos
+    return null;
   }
 }
 
@@ -241,6 +256,10 @@ async function saveMealForUser(userId, mealInfo) {
       throw new Error("Invalid meal information format");
     }
 
+    // Crear timestamp en zona horaria de Argentina
+    const now = new Date();
+    const argentinaTime = new Date(now.getTime() - (3 * 60 * 60 * 1000)); // GMT-3
+
     const { data, error } = await supabase.from("meals").insert([
       {
         user_id: userId,
@@ -249,7 +268,7 @@ async function saveMealForUser(userId, mealInfo) {
         protein: parsedInfo.protein,
         fat: parsedInfo.fat,
         carbohydrates: parsedInfo.carbohydrates,
-        created_at: new Date().toISOString(),
+        created_at: argentinaTime.toISOString(),
       },
     ]);
 
@@ -264,16 +283,20 @@ async function saveMealForUser(userId, mealInfo) {
   }
 }
 
-// Modify getDailySummary to be más explícito con el userId
+// Modify getDailySummary to use Argentina timezone
 async function getDailySummary(userId) {
   try {
     if (!userId) {
       throw new Error("User ID is required for getting daily summary");
     }
 
-    // Get today's date at start of day in user's timezone
+    // Get today's date at start of day in Argentina timezone
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Convertir a timezone de Argentina (GMT-3)
+    const argentinaOffset = -3;
+    const utcOffset = today.getTimezoneOffset() / 60;
+    const offsetDiff = argentinaOffset - utcOffset;
+    today.setHours(0 - offsetDiff, 0, 0, 0);
 
     console.log(`Getting daily summary for user ${userId} from ${today.toISOString()}`);
 
@@ -300,12 +323,22 @@ async function getDailySummary(userId) {
     let totalCarbs = 0;
 
     data.forEach((meal, index) => {
-      const mealTime = new Date(meal.created_at).toLocaleTimeString('es-ES', {
+      const mealDate = new Date(meal.created_at);
+      const argentinaTime = new Date(mealDate.getTime() + (argentinaOffset * 60 * 60 * 1000));
+      
+      const mealTime = argentinaTime.toLocaleTimeString('es-AR', {
         hour: '2-digit',
-        minute: '2-digit'
+        minute: '2-digit',
+        hour12: false,
+        timeZone: 'America/Argentina/Buenos_Aires'
       });
       
-      summary += `🕐 Comida ${index + 1} (${mealTime}):\n${meal.description}\n\n`;
+      summary += `🕐 Comida ${index + 1} (${mealTime}hs):\n`;
+      summary += `🍽️ ${meal.description}\n`;
+      summary += `🔥 Calorías: ${meal.kcal} kcal\n`;
+      summary += `💪 Proteínas: ${meal.protein}g\n`;
+      summary += `🥑 Grasas: ${meal.fat}g\n`;
+      summary += `🌾 Carbohidratos: ${meal.carbohydrates}g\n\n`;
 
       // Sumar los valores nutricionales con validación
       totalKcal += Number(meal.kcal) || 0;
