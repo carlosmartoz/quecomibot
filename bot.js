@@ -47,11 +47,13 @@ async function processMessageWithAI(threadId, content, isImage = false) {
         content: [
           {
             type: "text",
-            text: "Analiza esta imagen de comida y proporciona las calorías aproximadas y macronutrientes."
+            text: "Analiza esta imagen de comida y proporciona las calorías aproximadas y macronutrientes. Si ves varios alimentos, lista cada uno por separado."
           },
           {
             type: "image_url",
-            image_url: content
+            image_url: {
+              url: content
+            }
           }
         ]
       });
