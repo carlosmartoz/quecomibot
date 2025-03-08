@@ -183,32 +183,30 @@ function parseNutritionInfo(response) {
       carbohydrates: null,
     };
 
-    // Extraer el nombre del plato
-    const foodMatch = response.match(/🍽️\s*Plato:\s*([^\n]+)/i) || 
-                     response.match(/🥣\s*Plato:\s*([^\n]+)/i) ||
-                     response.match(/🍔\s*Plato:\s*([^\n]+)/i);
+    // Extraer el nombre del plato (ahora busca después de "Plato:")
+    const foodMatch = response.match(/Plato:\s*([^\n]+)/i);
     if (!foodMatch) throw new Error("Missing food name");
     nutritionInfo.description = foodMatch[1].trim();
 
-    // Buscar calorías
+    // Buscar calorías (nuevo formato con punto bullet)
     const kcalMatch = response.match(/Calorías:\s*(\d+)\s*kcal/i);
     if (!kcalMatch) throw new Error("Missing calories information");
     nutritionInfo.kcal = parseInt(kcalMatch[1]);
 
-    // Buscar proteínas
+    // Buscar proteínas (nuevo formato)
     const proteinMatch = response.match(/Proteínas:\s*(\d+(?:\.\d+)?)\s*g/i);
     if (!proteinMatch) throw new Error("Missing protein information");
     nutritionInfo.protein = parseFloat(proteinMatch[1]);
 
-    // Buscar grasas
-    const fatMatch = response.match(/Grasas:\s*(\d+(?:\.\d+)?)\s*g/i);
-    if (!fatMatch) throw new Error("Missing fat information");
-    nutritionInfo.fat = parseFloat(fatMatch[1]);
-
-    // Buscar carbohidratos
+    // Buscar carbohidratos (nuevo formato)
     const carbsMatch = response.match(/Carbohidratos:\s*(\d+(?:\.\d+)?)\s*g/i);
     if (!carbsMatch) throw new Error("Missing carbohydrates information");
     nutritionInfo.carbohydrates = parseFloat(carbsMatch[1]);
+
+    // Buscar grasas (nuevo formato)
+    const fatMatch = response.match(/Grasas:\s*(\d+(?:\.\d+)?)\s*g/i);
+    if (!fatMatch) throw new Error("Missing fat information");
+    nutritionInfo.fat = parseFloat(fatMatch[1]);
 
     // Validar valores numéricos
     if (isNaN(nutritionInfo.kcal) || 
@@ -218,10 +216,14 @@ function parseNutritionInfo(response) {
       throw new Error("Invalid numerical values");
     }
 
+    // Agregar log para debugging
+    console.log("Response original:", response);
     console.log("Parsed nutrition info:", nutritionInfo);
+    
     return nutritionInfo;
   } catch (error) {
     console.error("Error parsing nutrition info:", error);
+    console.error("Response that caused error:", response);
     return null;
   }
 }
@@ -440,9 +442,9 @@ bot.on("message", async (msg) => {
 
     if (response && shouldAnalyze) {
       try {
-        console.log("Respuesta de la IA:", response); // Agregar log
+        console.log("Respuesta completa de la IA:", response);
         const parsedInfo = parseNutritionInfo(response);
-        console.log("Información parseada:", parsedInfo); // Agregar log
+        console.log("Información parseada:", parsedInfo);
 
         if (parsedInfo) {
           await saveMealForUser(userId, response);
