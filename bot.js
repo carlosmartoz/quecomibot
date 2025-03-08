@@ -6,7 +6,6 @@ const TelegramBot = require("node-telegram-bot-api");
 const OpenAI = require("openai");
 const fs = require("fs");
 const https = require("https");
-const http = require("http");
 
 // Get environment variables
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
@@ -22,7 +21,7 @@ const openai = new OpenAI({
 const PORT = 3000;
 
 // Create a fake server to keep Render from complaining
-http
+https
   .createServer((req, res) => {
     res.write("QueComí is running...");
 
