@@ -18,6 +18,20 @@ const openai = new OpenAI({
   apiKey: OPENAI_API_KEY,
 });
 
+// Create a fake server to keep Render from complaining
+const PORT = 3000;
+
+// Create a fake server to keep Render from complaining
+http
+  .createServer((req, res) => {
+    res.write("QueComí is running...");
+
+    res.end();
+  })
+  .listen(PORT, () => {
+    console.log(`✅ QueComí is running on port ${PORT}`);
+  });
+
 let bot;
 
 // Check if there is a previous instance running
@@ -270,20 +284,6 @@ bot.on("message", async (msg) => {
     );
   }
 });
-
-// Create a fake server to keep Render from complaining
-const PORT = 3000;
-
-// Create a fake server to keep Render from complaining
-http
-  .createServer((req, res) => {
-    res.write("QueComí is running...");
-
-    res.end();
-  })
-  .listen(PORT, () => {
-    console.log(`✅ QueComí is running on port ${PORT}`);
-  });
 
 // Log bot startup
 console.log("🤖 QueComí Started...");
