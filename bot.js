@@ -17,6 +17,13 @@ const openai = new OpenAI({
   apiKey: OPENAI_API_KEY,
 });
 
+// Check if there is a previous instance running
+if (bot) {
+  console.log("🛑 Stopping previous instance...");
+
+  bot.stopPolling();
+}
+
 // Initialize Telegram bot with polling
 const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: true });
 
