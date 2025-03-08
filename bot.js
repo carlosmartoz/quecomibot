@@ -365,7 +365,7 @@ async function getTodaysMealsFromDB(userId) {
       return "No has registrado comidas hoy.";
     }
     
-    let summary = "📋 Resumen de hoy (Hora Argentina):\n\n";
+    let summary = "📋 Resumen de hoy:\n\n";
     
     // Track total nutritional values
     let totalKcal = 0;
@@ -396,7 +396,7 @@ async function getTodaysMealsFromDB(userId) {
     });
     
     // Add total summary section
-    summary += `📊 TOTAL DEL DÍA:\n`;
+    summary += `📊 Total del día:\n`;
     summary += `  • Calorías totales: ${totalKcal.toFixed(1)} kcal\n`;
     summary += `  • Proteínas totales: ${totalProtein.toFixed(1)}g\n`;
     summary += `  • Carbohidratos totales: ${totalCarbs.toFixed(1)}g\n`;
