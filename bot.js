@@ -197,6 +197,8 @@ function getDailySummary(userId) {
 
 // Handle incoming messages
 bot.on("message", async (msg) => {
+  let shouldAnalyze = false;
+
   if (shouldAnalyze) {
     bot.sendMessage(
       chatId,
@@ -231,8 +233,6 @@ bot.on("message", async (msg) => {
       }
 
       let response;
-
-      let shouldAnalyze = false;
 
       if (msg.photo) {
         shouldAnalyze = true;
