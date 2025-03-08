@@ -3,12 +3,14 @@
       "target": "es2017",
       "module": "commonjs",
       "outDir": "./dist",
-      "rootDir": "./",
+      "rootDir": ".",
       "strict": true,
       "esModuleInterop": true,
       "skipLibCheck": true,
-      "moduleResolution": "node"
+      "moduleResolution": "node",
+      "allowJs": true,
+      "forceConsistentCasingInFileNames": true
     },
-    "include": ["api/**/*"],
-    "exclude": ["node_modules"]
+    "include": ["api/**/*", "bot.js"],
+    "exclude": ["node_modules", "dist"]
   }
