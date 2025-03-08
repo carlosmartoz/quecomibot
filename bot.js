@@ -197,93 +197,102 @@ function getDailySummary(userId) {
 
 // Handle incoming messages
 bot.on("message", async (msg) => {
-  const chatId = msg.chat.id;
-
-  const userId = msg.from.id;
-
-  const threadId = await getOrCreateThread(userId);
-
-  try {
-    if (msg.text === "/start") {
-      bot.sendMessage(
-        chatId,
-        "¡Hola! 👋 Soy tu asistente para llevar un registro de tus comidas 🍽️ \n\n" +
-          "Podés enviarme:\n" +
-          "- Fotos de comidas 📸\n" +
-          "- Descripciones de lo que has comido ✍️\n" +
-          "- Mensajes de voz describiendo tus comidas 🎤\n" +
-          "- 'Terminar el día' para ver tu resumen diario 📋\n\n" +
-          "¡Empecemos! ¿Qué has comido hoy?"
-      );
-      return;
-    }
-
-    if (msg.text === "Terminar el día") {
-      const summary = getDailySummary(userId);
-      bot.sendMessage(chatId, summary);
-      return;
-    }
-
-    let response;
-
-    let shouldAnalyze = false;
-
-    if (msg.photo) {
-      shouldAnalyze = true;
-
-      bot.sendMessage(
-        chatId,
-        "🔍 ¡Detective gastronómico en acción! Analizando tu deliciosa comida... 🧐✨"
-      );
-
-      const photo = msg.photo[msg.photo.length - 1];
-
-      const fileLink = await bot.getFileLink(photo.file_id);
-
-      response = await processMessageWithAI(threadId, fileLink, true);
-    } else if (msg.voice) {
-      shouldAnalyze = true;
-
-      bot.sendMessage(
-        chatId,
-        "🎙️ ¡Escuchando atentamente tus palabras! Transformando tu audio en texto... ✨"
-      );
-
-      const fileLink = await bot.getFileLink(msg.voice.file_id);
-
-      const audioBuffer = await downloadFile(fileLink);
-
-      const transcription = await transcribeAudio(audioBuffer);
-
-      bot.sendMessage(
-        chatId,
-        "🔍 ¡Detective gastronómico en acción! Analizando tu deliciosa comida... 🧐✨"
-      );
-
-      response = await processMessageWithAI(threadId, transcription);
-    } else if (msg.text) {
-      shouldAnalyze = true;
-
-      bot.sendMessage(
-        chatId,
-        "🔍 ¡Detective gastronómico en acción! Analizando tu deliciosa comida... 🧐✨"
-      );
-
-      response = await processMessageWithAI(threadId, msg.text);
-    }
-
-    if (response && shouldAnalyze) {
-      saveMealForUser(userId, response);
-
-      bot.sendMessage(chatId, response);
-    }
-  } catch (error) {
-    console.error("Error:", error);
-
+  if (shouldAnalyze) {
     bot.sendMessage(
       chatId,
-      "¡Ups! 🙈 Parece que mi cerebro nutricional está haciendo una pequeña siesta digestiva 😴. \n\n ¿Podrías intentarlo de nuevo en un momento? ¡Prometo estar más despierto! 🌟"
+      "Aun estamos analizando tu comida, por favor espere un momento..."
     );
+  } else {
+    const chatId = msg.chat.id;
+
+    const userId = msg.from.id;
+
+    const threadId = await getOrCreateThread(userId);
+
+    try {
+      if (msg.text === "/start") {
+        bot.sendMessage(
+          chatId,
+          "¡Hola! 👋 Soy tu asistente para llevar un registro de tus comidas 🍽️ \n\n" +
+            "Podés enviarme:\n" +
+            "- Fotos de comidas 📸\n" +
+            "- Descripciones de lo que has comido ✍️\n" +
+            "- Mensajes de voz describiendo tus comidas 🎤\n" +
+            "- 'Terminar el día' para ver tu resumen diario 📋\n\n" +
+            "¡Empecemos! ¿Qué has comido hoy?"
+        );
+        return;
+      }
+
+      if (msg.text === "Terminar el día") {
+        const summary = getDailySummary(userId);
+        bot.sendMessage(chatId, summary);
+        return;
+      }
+
+      let response;
+
+      let shouldAnalyze = false;
+
+      if (msg.photo) {
+        shouldAnalyze = true;
+
+        bot.sendMessage(
+          chatId,
+          "🔍 ¡Detective gastronómico en acción! Analizando tu deliciosa comida... 🧐✨"
+        );
+
+        const photo = msg.photo[msg.photo.length - 1];
+
+        const fileLink = await bot.getFileLink(photo.file_id);
+
+        response = await processMessageWithAI(threadId, fileLink, true);
+      } else if (msg.voice) {
+        shouldAnalyze = true;
+
+        bot.sendMessage(
+          chatId,
+          "🎙️ ¡Escuchando atentamente tus palabras! Transformando tu audio en texto... ✨"
+        );
+
+        const fileLink = await bot.getFileLink(msg.voice.file_id);
+
+        const audioBuffer = await downloadFile(fileLink);
+
+        const transcription = await transcribeAudio(audioBuffer);
+
+        bot.sendMessage(
+          chatId,
+          "🔍 ¡Detective gastronómico en acción! Analizando tu deliciosa comida... 🧐✨"
+        );
+
+        response = await processMessageWithAI(threadId, transcription);
+      } else if (msg.text) {
+        shouldAnalyze = true;
+
+        bot.sendMessage(
+          chatId,
+          "🔍 ¡Detective gastronómico en acción! Analizando tu deliciosa comida... 🧐✨"
+        );
+
+        response = await processMessageWithAI(threadId, msg.text);
+      }
+
+      if (response && shouldAnalyze) {
+        saveMealForUser(userId, response);
+
+        bot.sendMessage(chatId, response);
+
+        shouldAnalyze = false;
+      }
+    } catch (error) {
+      console.error("Error:", error);
+
+      bot.sendMessage(
+        chatId,
+        "¡Ups! 🙈 Parece que mi cerebro nutricional está haciendo una pequeña siesta digestiva 😴. \n\n ¿Podrías intentarlo de nuevo en un momento? ¡Prometo estar más despierto! 🌟"
+      );
+    }
   }
 });
 
