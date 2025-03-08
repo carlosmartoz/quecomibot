@@ -17,17 +17,27 @@ const openai = new OpenAI({
   apiKey: OPENAI_API_KEY,
 });
 
-let bot;
+// Initialize Telegram bot with polling and prevent multiple instances
+const options = {
+  polling: {
+    params: {
+      timeout: 50,
+      allowed_updates: ["message"],
+    },
+  },
+};
 
-// Check if there is a previous instance running
-if (bot) {
-  console.log("🛑 Stopping previous instance...");
+// Initialize Telegram bot with polling and prevent multiple instances
+const bot = new TelegramBot(TELEGRAM_TOKEN, options);
 
-  bot.stopPolling();
-}
-
-// Initialize Telegram bot with polling
-bot = new TelegramBot(TELEGRAM_TOKEN, { polling: true });
+// Handle polling errors
+bot.on("polling_error", (error) => {
+  console.log("Polling error:", error);
+  // Attempt to restart polling after error
+  setTimeout(() => {
+    bot.startPolling();
+  }, 5000);
+});
 
 // Store user conversations and meals
 const userThreads = new Map();
