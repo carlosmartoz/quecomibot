@@ -24,6 +24,13 @@ const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: true });
 const userThreads = new Map();
 const userMeals = new Map();
 
+// Check if there is a previous instance and stop it
+if (bot) {
+  console.log("🛑 Stopping previous instances...");
+
+  bot.stopPolling();
+}
+
 // Get existing thread for user or create new one
 async function getOrCreateThread(userId) {
   if (!userThreads.has(userId)) {
