@@ -128,15 +128,7 @@ async function processMessageWithAI(threadId, content, isImage = false) {
 
       await openai.beta.threads.messages.create(threadId, {
         role: "user",
-        content: `Analiza el siguiente mensaje y proporciona un análisis nutricional en el siguiente formato:
-
-Alimento: [nombre]
-Calorías: [X] kcal
-Proteínas: [X]g
-Grasas: [X]g
-Carbohidratos: [X]g
-
-Mensaje a analizar: ${messageContent}`,
+        content: `Analiza el siguiente mensaje y proporciona un análisis nutricional en el siguiente formato: ${messageContent}`,
       });
     }
 
@@ -261,7 +253,6 @@ async function saveMealForUser(userId, mealInfo) {
 
     // Crear timestamp en zona horaria de Argentina
     const now = new Date();
-    const argentinaTime = new Date(now.getTime() - (3 * 60 * 60 * 1000)); // GMT-3
 
     const { data, error } = await supabase.from("meals").insert([
       {
@@ -271,7 +262,7 @@ async function saveMealForUser(userId, mealInfo) {
         protein: parsedInfo.protein,
         fat: parsedInfo.fat,
         carbohydrates: parsedInfo.carbohydrates,
-        created_at: argentinaTime.toISOString(),
+        created_at: now.toISOString(),
       },
     ]);
 
@@ -284,13 +275,6 @@ async function saveMealForUser(userId, mealInfo) {
     console.error("Error detallado al guardar en Supabase:", error);
     throw error;
   }
-
-  const meals = userMeals.get(userId);
-
-  meals.push({
-    timestamp: new Date(),
-    info: mealInfo,
-  });
 }
 
 // Modify getDailySummary to use Argentina timezone
