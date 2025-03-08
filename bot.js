@@ -6,7 +6,7 @@ const TelegramBot = require("node-telegram-bot-api");
 const OpenAI = require("openai");
 const fs = require("fs");
 const https = require("https");
-const { createClient } = require('@supabase/supabase-js');
+const { createClient } = require("@supabase/supabase-js");
 
 // Get environment variables
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
@@ -153,36 +153,38 @@ async function saveMealForUser(userId, mealInfo) {
     timestamp: new Date(),
     info: mealInfo,
   });
-  
+
   // Extract meal data from the formatted string
   try {
     // Extract description (the dish name)
     let description = "";
-    
+
     // Try to match with the "🍽️ Plato:" prefix first
     const descriptionMatch = mealInfo.match(/🍽️ Plato: (.*?)(\n|$)/);
     if (descriptionMatch) {
       description = descriptionMatch[1].trim();
     } else {
       // If no match, try to get the first line of the response as the dish name
-      const firstLineMatch = mealInfo.split('\n')[0];
+      const firstLineMatch = mealInfo.split("\n")[0];
       if (firstLineMatch) {
         // Remove any emoji or prefix if present
-        description = firstLineMatch.replace(/^[^a-zA-ZáéíóúÁÉÍÓÚñÑ]*/, '').trim();
+        description = firstLineMatch
+          .replace(/^[^a-zA-ZáéíóúÁÉÍÓÚñÑ]*/, "")
+          .trim();
       }
     }
-    
+
     // Extract nutritional values
     const kcalMatch = mealInfo.match(/Calorías: ([\d.]+) kcal/);
     const proteinMatch = mealInfo.match(/Proteínas: ([\d.]+)g/);
     const carbsMatch = mealInfo.match(/Carbohidratos: ([\d.]+)g/);
     const fatMatch = mealInfo.match(/Grasas: ([\d.]+)g/);
-    
+
     const kcal = kcalMatch ? kcalMatch[1] : "";
     const protein = proteinMatch ? proteinMatch[1] : "";
     const carbohydrates = carbsMatch ? carbsMatch[1] : "";
     const fat = fatMatch ? fatMatch[1] : "";
-    
+
     // Save to Supabase
     const { data, error } = await supabase
       .from('meals')
@@ -190,14 +192,14 @@ async function saveMealForUser(userId, mealInfo) {
         { 
           user_id: userId,
           description: description,
-          created_at: new Date(),
+          created_at: new Date().toISOString(), // Supabase will store this in UTC
           kcal: kcal,
           protein: protein,
           fat: fat,
           carbohydrates: carbohydrates
         }
       ]);
-      
+
     if (error) {
       console.error("Error saving meal to database:", error);
     } else {
@@ -234,23 +236,28 @@ async function getTodaysMealsFromDB(userId) {
   try {
     // Get current date in Argentina timezone (UTC-3)
     const now = new Date();
-    // Adjust to Argentina timezone (UTC-3)
-    const argentinaTime = new Date(now.getTime() - (3 * 60 * 60 * 1000));
-    const todayStart = new Date(argentinaTime);
+    
+    // Create today's date range in Argentina time (UTC-3)
+    // For querying Supabase, we need to convert from local Argentina time to UTC
+    const todayStart = new Date(now);
     todayStart.setHours(0, 0, 0, 0);
-    
-    const todayEnd = new Date(argentinaTime);
+    // Add 3 hours to convert from Argentina time to UTC for Supabase query
+    const todayStartUTC = new Date(todayStart.getTime() + 3 * 60 * 60 * 1000);
+
+    const todayEnd = new Date(now);
     todayEnd.setHours(23, 59, 59, 999);
-    
+    // Add 3 hours to convert from Argentina time to UTC for Supabase query
+    const todayEndUTC = new Date(todayEnd.getTime() + 3 * 60 * 60 * 1000);
+
     // Query Supabase for today's meals
     const { data, error } = await supabase
-      .from('meals')
-      .select('*')
-      .eq('user_id', userId)
-      .gte('created_at', todayStart.toISOString())
-      .lte('created_at', todayEnd.toISOString())
-      .order('created_at', { ascending: true });
-    
+      .from("meals")
+      .select("*")
+      .eq("user_id", userId)
+      .gte("created_at", todayStartUTC.toISOString())
+      .lte("created_at", todayEndUTC.toISOString())
+      .order("created_at", { ascending: true });
+
     if (error) {
       console.error("Error fetching meals from database:", error);
       return "Error al obtener el resumen de comidas. Por favor, intenta nuevamente.";
@@ -263,8 +270,11 @@ async function getTodaysMealsFromDB(userId) {
     let summary = "📋 Resumen de hoy (Hora Argentina):\n\n";
     
     data.forEach((meal, index) => {
-      const mealTime = new Date(meal.created_at);
-      summary += `🕐 Comida ${index + 1} (${mealTime.toLocaleTimeString('es-AR')}):\n`;
+      // Convert UTC time from Supabase back to Argentina time for display
+      const mealTimeUTC = new Date(meal.created_at);
+      const mealTimeArgentina = new Date(mealTimeUTC.getTime() - 3 * 60 * 60 * 1000);
+      
+      summary += `🕐 Comida ${index + 1} (${mealTimeArgentina.toLocaleTimeString('es-AR')}):\n`;
       summary += `🍽️ Plato: ${meal.description || 'Sin descripción'}\n`;
       summary += `📊 Nutrientes:\n`;
       summary += `  • Calorías: ${meal.kcal || '0'} kcal\n`;
@@ -272,7 +282,7 @@ async function getTodaysMealsFromDB(userId) {
       summary += `  • Carbohidratos: ${meal.carbohydrates || '0'}g\n`;
       summary += `  • Grasas: ${meal.fat || '0'}g\n\n`;
     });
-    
+
     return summary;
   } catch (error) {
     console.error("Error in getTodaysMealsFromDB:", error);
@@ -353,7 +363,12 @@ bot.on("message", async (msg) => {
       );
 
       response = await processMessageWithAI(threadId, transcription);
-    } else if (msg.text && msg.text !== "/start" && msg.text !== "Terminar el día" && msg.text.toLowerCase() !== "resumen") {
+    } else if (
+      msg.text &&
+      msg.text !== "/start" &&
+      msg.text !== "Terminar el día" &&
+      msg.text.toLowerCase() !== "resumen"
+    ) {
       shouldAnalyze = true;
 
       bot.sendMessage(
