@@ -160,8 +160,20 @@ async function saveMealForUser(userId, mealInfo) {
   // Extract meal data from the formatted string
   try {
     // Extract description (the dish name)
+    let description = "";
+    
+    // Try to match with the "🍽️ Plato:" prefix first
     const descriptionMatch = mealInfo.match(/🍽️ Plato: (.*?)(\n|$)/);
-    const description = descriptionMatch ? descriptionMatch[1].trim() : "";
+    if (descriptionMatch) {
+      description = descriptionMatch[1].trim();
+    } else {
+      // If no match, try to get the first line of the response as the dish name
+      const firstLineMatch = mealInfo.split('\n')[0];
+      if (firstLineMatch) {
+        // Remove any emoji or prefix if present
+        description = firstLineMatch.replace(/^[^a-zA-ZáéíóúÁÉÍÓÚñÑ]*/, '').trim();
+      }
+    }
     
     // Extract nutritional values
     const kcalMatch = mealInfo.match(/Calorías: ([\d.]+) kcal/);
@@ -256,12 +268,12 @@ async function getTodaysMealsFromDB(userId) {
     data.forEach((meal, index) => {
       const mealTime = new Date(meal.created_at);
       summary += `🕐 Comida ${index + 1} (${mealTime.toLocaleTimeString('es-AR')}):\n`;
-      summary += `🍽️ Plato: ${meal.description}\n`;
+      summary += `🍽️ Plato: ${meal.description || 'Sin descripción'}\n`;
       summary += `📊 Nutrientes:\n`;
-      summary += `  • Calorías: ${meal.kcal} kcal\n`;
-      summary += `  • Proteínas: ${meal.protein}g\n`;
-      summary += `  • Carbohidratos: ${meal.carbohydrates}g\n`;
-      summary += `  • Grasas: ${meal.fat}g\n\n`;
+      summary += `  • Calorías: ${meal.kcal || '0'} kcal\n`;
+      summary += `  • Proteínas: ${meal.protein || '0'}g\n`;
+      summary += `  • Carbohidratos: ${meal.carbohydrates || '0'}g\n`;
+      summary += `  • Grasas: ${meal.fat || '0'}g\n\n`;
     });
     
     return summary;
