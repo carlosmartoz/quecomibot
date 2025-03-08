@@ -2,6 +2,7 @@
 require("dotenv").config();
 
 // Required dependencies
+const express = require("express");
 const TelegramBot = require("node-telegram-bot-api");
 const OpenAI = require("openai");
 const fs = require("fs");
@@ -11,14 +12,39 @@ const https = require("https");
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const ASSISTANT_ID = process.env.ASSISTANT_ID;
+const WEBHOOK_URL = process.env.WEBHOOK_URL;
 
 // Initialize OpenAI client
 const openai = new OpenAI({
   apiKey: OPENAI_API_KEY,
 });
 
-// Initialize Telegram bot with polling
-const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: true });
+// Initialize Express app
+const app = express();
+
+// Initialize Telegram bot with webhook
+const bot = new TelegramBot(TELEGRAM_TOKEN, { webHook: true });
+
+// Configure the webhook
+bot.setWebHook(`${WEBHOOK_URL}/bot${TELEGRAM_TOKEN}`);
+
+// Middleware to parse JSON bodies
+app.use(express.json());
+
+// Webhook endpoint
+app.post(`/bot${TELEGRAM_TOKEN}`, (req, res) => {
+  bot.processUpdate(req.body);
+
+  res.sendStatus(200);
+});
+
+// Get the port from the environment variables or use 3000 as default
+const PORT = process.env.PORT || 3000;
+
+// Listen on the port
+app.listen(PORT, () => {
+  console.log(`✅ Webhook active on ${WEBHOOK_URL}/bot${TELEGRAM_TOKEN}`);
+});
 
 // Store user conversations and meals
 const userThreads = new Map();
