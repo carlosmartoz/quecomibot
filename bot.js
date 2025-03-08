@@ -1,7 +1,4 @@
-// Load environment variables
 require("dotenv").config();
-
-// Import required dependencies
 const TelegramBot = require("node-telegram-bot-api");
 const OpenAI = require("openai");
 const fs = require("fs");
@@ -144,7 +141,6 @@ async function processMessageWithAI(threadId, content, isImage = false) {
     return lastMessage.content[0].text.value;
   } catch (error) {
     console.error("Error processing message with AI:", error);
-
     return "¡Ups! 🙈 Parece que mi cerebro nutricional está haciendo una pequeña siesta digestiva 😴. ¿Podrías intentarlo de nuevo en un momento? ¡Prometo estar más despierto! 🌟";
   }
 }
@@ -179,7 +175,7 @@ function getDailySummary(userId) {
     } (${meal.timestamp.toLocaleTimeString()}):\n${meal.info}\n\n`;
   });
 
-  // Clear log after showing summary
+  // Limpiar el registro después de mostrar el resumen
   userMeals.set(userId, []);
 
   return summary;
@@ -223,11 +219,7 @@ bot.on("message", async (msg) => {
     // Handle photo messages
     if (msg.photo) {
       shouldAnalyze = true;
-      bot.sendMessage(
-        chatId,
-        "🔍 ¡Detective gastronómico en acción! Analizando tu deliciosa comida... 🧐✨"
-      );
-
+      bot.sendMessage(chatId, "🔍 ¡Detective gastronómico en acción! Analizando tu deliciosa comida... 🧐✨");
       const photo = msg.photo[msg.photo.length - 1];
 
       const fileLink = await bot.getFileLink(photo.file_id);
@@ -237,33 +229,19 @@ bot.on("message", async (msg) => {
     // Handle voice messages
     else if (msg.voice) {
       shouldAnalyze = true;
-
-      bot.sendMessage(
-        chatId,
-        "🎙️ ¡Escuchando atentamente tus palabras! Transformando tu audio en texto... ✨"
-      );
-
+      bot.sendMessage(chatId, "🎙️ ¡Escuchando atentamente tus palabras! Transformando tu audio en texto... ✨");
       const fileLink = await bot.getFileLink(msg.voice.file_id);
 
       const audioBuffer = await downloadFile(fileLink);
 
       const transcription = await transcribeAudio(audioBuffer);
-
-      bot.sendMessage(
-        chatId,
-        "🔍 ¡Detective gastronómico en acción! Analizando tu deliciosa comida... 🧐✨"
-      );
+      bot.sendMessage(chatId, "🔍 ¡Detective gastronómico en acción! Analizando tu deliciosa comida... 🧐✨");
       response = await processMessageWithAI(threadId, transcription);
     }
     // Handle text messages
     else if (msg.text) {
       shouldAnalyze = true;
-
-      bot.sendMessage(
-        chatId,
-        "🔍 ¡Detective gastronómico en acción! Analizando tu deliciosa comida... 🧐✨"
-      );
-
+      bot.sendMessage(chatId, "🔍 ¡Detective gastronómico en acción! Analizando tu deliciosa comida... 🧐✨");
       response = await processMessageWithAI(threadId, msg.text);
     }
 
@@ -278,10 +256,9 @@ bot.on("message", async (msg) => {
 
     bot.sendMessage(
       chatId,
-      "Lo siento, ha ocurrido un error. Por favor, intenta de nuevo más tarde."
+      "¡Ups! 🙈 Parece que mi cerebro nutricional está haciendo una pequeña siesta digestiva 😴. ¿Podrías intentarlo de nuevo en un momento? ¡Prometo estar más despierto! 🌟"
     );
   }
 });
 
-// Log bot startup
 console.log("🤖 QueComí Started...");
