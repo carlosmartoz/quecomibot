@@ -155,61 +155,16 @@ async function processMessageWithAI(threadId, content, isImage = false) {
   }
 }
 
-// Función auxiliar para extraer los macronutrientes del texto de respuesta
-function extractNutrients(response) {
-  try {
-    // Inicializar valores por defecto
-    let nutrients = {
-      kcal: '0',
-      protein: '0',
-      fat: '0',
-      carbohydrates: '0'
-    };
-
-    // Buscar calorías
-    const kcalMatch = response.match(/(\d+)\s*(?:kcal|calorías|cal)/i);
-    if (kcalMatch) nutrients.kcal = kcalMatch[1];
-
-    // Buscar proteínas
-    const proteinMatch = response.match(/(\d+(?:\.\d+)?)\s*(?:g|gr|gramos)?\s*(?:de)?\s*proteínas?/i);
-    if (proteinMatch) nutrients.protein = proteinMatch[1];
-
-    // Buscar grasas
-    const fatMatch = response.match(/(\d+(?:\.\d+)?)\s*(?:g|gr|gramos)?\s*(?:de)?\s*grasas?/i);
-    if (fatMatch) nutrients.fat = fatMatch[1];
-
-    // Buscar carbohidratos
-    const carbsMatch = response.match(/(\d+(?:\.\d+)?)\s*(?:g|gr|gramos)?\s*(?:de)?\s*(?:carbohidratos?|carbs?)/i);
-    if (carbsMatch) nutrients.carbohydrates = carbsMatch[1];
-
-    return nutrients;
-  } catch (error) {
-    console.error('Error extracting nutrients:', error);
-    return {
-      kcal: '0',
-      protein: '0',
-      fat: '0',
-      carbohydrates: '0'
-    };
-  }
-}
-
-// Modificar saveMealForUser para guardar los macronutrientes
+// Modify saveMealForUser function to use Supabase
 async function saveMealForUser(userId, mealInfo) {
   try {
-    const nutrients = extractNutrients(mealInfo);
-    
     const { data, error } = await supabase
       .from('meals')
       .insert([
         {
           user_id: userId,
-          description: mealInfo,
-          created_at: new Date().toISOString(),
-          kcal: nutrients.kcal,
-          protein: nutrients.protein,
-          fat: nutrients.fat,
-          carbohydrates: nutrients.carbohydrates
+          info: mealInfo,
+          created_at: new Date().toISOString()
         }
       ]);
 
@@ -221,9 +176,10 @@ async function saveMealForUser(userId, mealInfo) {
   }
 }
 
-// Actualizar getDailySummary para mostrar los macronutrientes
+// Modify getDailySummary function to use Supabase
 async function getDailySummary(userId) {
   try {
+    // Get today's date at midnight
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -241,84 +197,23 @@ async function getDailySummary(userId) {
     }
 
     let summary = "📋 Resumen del día:\n\n";
-    let totalKcal = 0;
-    let totalProtein = 0;
-    let totalFat = 0;
-    let totalCarbs = 0;
 
     data.forEach((meal, index) => {
       const mealTime = new Date(meal.created_at).toLocaleTimeString();
-      summary += `🕐 Comida ${index + 1} (${mealTime}):\n${meal.description}\n`;
-      summary += `📊 Nutrientes:\n`;
-      summary += `   • Calorías: ${meal.kcal}kcal\n`;
-      summary += `   • Proteínas: ${meal.protein}g\n`;
-      summary += `   • Grasas: ${meal.fat}g\n`;
-      summary += `   • Carbohidratos: ${meal.carbohydrates}g\n\n`;
-
-      totalKcal += parseFloat(meal.kcal) || 0;
-      totalProtein += parseFloat(meal.protein) || 0;
-      totalFat += parseFloat(meal.fat) || 0;
-      totalCarbs += parseFloat(meal.carbohydrates) || 0;
+      summary += `🕐 Comida ${index + 1} (${mealTime}):\n${meal.info}\n\n`;
     });
 
-    summary += "📈 Totales del día:\n";
-    summary += `   • Calorías totales: ${totalKcal.toFixed(1)}kcal\n`;
-    summary += `   • Proteínas totales: ${totalProtein.toFixed(1)}g\n`;
-    summary += `   • Grasas totales: ${totalFat.toFixed(1)}g\n`;
-    summary += `   • Carbohidratos totales: ${totalCarbs.toFixed(1)}g\n`;
+    // Opcional: Borrar las comidas después de mostrar el resumen
+    // await supabase
+    //   .from('meals')
+    //   .delete()
+    //   .eq('user_id', userId)
+    //   .gte('created_at', today.toISOString());
 
     return summary;
   } catch (error) {
     console.error("Error getting daily summary from Supabase:", error);
     return "Error al obtener el resumen diario.";
-  }
-}
-
-// Función para obtener el historial de comidas
-async function getMealHistory(userId, days = 7) {
-  try {
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - days);
-    startDate.setHours(0, 0, 0, 0);
-
-    const { data, error } = await supabase
-      .from('meals')
-      .select('*')
-      .eq('user_id', userId)
-      .gte('created_at', startDate.toISOString())
-      .order('created_at', { descending: true });
-
-    if (error) throw error;
-
-    if (!data || data.length === 0) {
-      return "No hay registros de comidas en este período.";
-    }
-
-    let history = "📖 Historial de comidas:\n\n";
-    let currentDate = '';
-
-    data.forEach((meal) => {
-      const mealDate = new Date(meal.created_at);
-      const dateStr = mealDate.toLocaleDateString();
-      
-      if (dateStr !== currentDate) {
-        currentDate = dateStr;
-        history += `📅 ${dateStr}\n`;
-      }
-
-      history += `🕐 ${mealDate.toLocaleTimeString()}\n`;
-      history += `🍽️ ${meal.description}\n`;
-      history += `📊 Nutrientes:\n`;
-      history += `   • Calorías: ${meal.kcal}kcal\n`;
-      history += `   • Proteínas: ${meal.protein}g\n`;
-      history += `   • Grasas: ${meal.fat}g\n`;
-      history += `   • Carbohidratos: ${meal.carbohydrates}g\n\n`;
-    });
-
-    return history;
-  } catch (error) {
-    console.error('Error getting meal history:', error);
-    return "Error al obtener el historial de comidas.";
   }
 }
 
@@ -338,11 +233,8 @@ bot.on("message", async (msg) => {
           "Podés enviarme:\n" +
           "- Fotos de comidas 📸\n" +
           "- Descripciones de lo que has comido ✍️\n" +
-          "- Mensajes de voz describiendo tus comidas 🎤\n\n" +
-          "Comandos disponibles:\n" +
-          "- 'Terminar el día' para ver tu resumen diario 📋\n" +
-          "- '/historial' para ver tus últimas comidas 📖\n" +
-          "- '/historial X' para ver las comidas de los últimos X días\n\n" +
+          "- Mensajes de voz describiendo tus comidas 🎤\n" +
+          "- 'Terminar el día' para ver tu resumen diario 📋\n\n" +
           "¡Empecemos! ¿Qué has comido hoy?"
       );
       return;
@@ -351,23 +243,6 @@ bot.on("message", async (msg) => {
     if (msg.text === "Terminar el día") {
       const summary = await getDailySummary(userId);
       bot.sendMessage(chatId, summary);
-      return;
-    }
-
-    if (msg.text && msg.text.startsWith('/historial')) {
-      const parts = msg.text.split(' ');
-      const days = parts.length > 1 ? parseInt(parts[1]) : 7;
-      
-      if (isNaN(days) || days < 1 || days > 30) {
-        bot.sendMessage(
-          chatId,
-          "Por favor, especifica un número de días válido entre 1 y 30."
-        );
-        return;
-      }
-
-      const history = await getMealHistory(userId, days);
-      bot.sendMessage(chatId, history);
       return;
     }
 
