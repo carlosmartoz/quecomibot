@@ -6,25 +6,28 @@ const TelegramBot = require("node-telegram-bot-api");
 const OpenAI = require("openai");
 const fs = require("fs");
 const https = require("https");
-const { createClient } = require("@supabase/supabase-js");
 
 // Get environment variables
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const ASSISTANT_ID = process.env.ASSISTANT_ID;
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
 
 // Initialize OpenAI client
 const openai = new OpenAI({
   apiKey: OPENAI_API_KEY,
 });
 
-// Initialize Telegram bot with polling
-const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: true });
+let bot;
 
-// Initialize Supabase client
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Check if there is a previous instance running
+if (bot) {
+  console.log("🛑 Stopping previous instance...");
+
+  bot.stopPolling();
+}
+
+// Initialize Telegram bot with polling
+bot = new TelegramBot(TELEGRAM_TOKEN, { polling: true });
 
 // Store user conversations and meals
 const userThreads = new Map();
@@ -281,6 +284,13 @@ async function saveMealForUser(userId, mealInfo) {
     console.error("Error detallado al guardar en Supabase:", error);
     throw error;
   }
+
+  const meals = userMeals.get(userId);
+
+  meals.push({
+    timestamp: new Date(),
+    info: mealInfo,
+  });
 }
 
 // Modify getDailySummary to use Argentina timezone
@@ -359,6 +369,20 @@ async function getDailySummary(userId) {
     console.error(`Error getting daily summary for user ${userId}:`, error);
     return "Error al obtener tu resumen diario. Por favor, intenta nuevamente.";
   }
+
+  const meals = userMeals.get(userId);
+
+  let summary = "📋 Resumen del día:\n\n";
+
+  meals.forEach((meal, index) => {
+    summary += `🕐 Comida ${
+      index + 1
+    } (${meal.timestamp.toLocaleTimeString()}):\n${meal.info}\n\n`;
+  });
+
+  userMeals.set(userId, []);
+
+  return summary;
 }
 
 // Handle incoming messages
