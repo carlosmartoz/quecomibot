@@ -166,7 +166,7 @@ function saveMealForUser(userId, mealInfo) {
 // Get daily summary of meals for a user
 function getDailySummary(userId) {
   if (!userMeals.has(userId) || userMeals.get(userId).length === 0) {
-    return "¡Vaya! 🤔 Parece que tu diario gastronómico está tan vacío como mi estómago antes del desayuno 🍳. ¡No has registrado ninguna comida hoy! ¿Qué tal si empezamos a llenar este registro con algo delicioso? 🌟";
+    return "No has registrado comidas hoy.";
   }
 
   const meals = userMeals.get(userId);
@@ -278,7 +278,7 @@ bot.on("message", async (msg) => {
 
     bot.sendMessage(
       chatId,
-      "¡Ups! 🙈 Parece que mi cerebro nutricional está haciendo una pequeña siesta digestiva 😴. ¿Podrías intentarlo de nuevo en un momento? ¡Prometo estar más despierto! 🌟"
+      "Lo siento, ha ocurrido un error. Por favor, intenta de nuevo más tarde."
     );
   }
 });
