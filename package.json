@@ -1,5 +1,8 @@
 {
   "dependencies": {
-    "node-telegram-bot-api": "^0.66.0"
+    "@google-cloud/vision": "^4.3.3",
+    "dotenv": "^16.4.7",
+    "node-telegram-bot-api": "^0.66.0",
+    "openai": "^4.86.2"
   }
 }
