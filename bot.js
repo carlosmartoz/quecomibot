@@ -98,7 +98,7 @@ async function transcribeAudio(audioBuffer) {
 async function processMessageWithAI(threadId, content, isImage = false) {
   try {
     // Add console.log for debugging
-    console.log('Processing message:', { threadId, content, isImage });
+    console.log("Processing message:", { threadId, content, isImage });
 
     if (isImage) {
       await openai.beta.threads.messages.create(threadId, {
@@ -120,12 +120,20 @@ async function processMessageWithAI(threadId, content, isImage = false) {
       // Ensure content is a string
       const messageContent = String(content).trim();
       if (!messageContent) {
-        throw new Error('Empty message content');
+        throw new Error("Empty message content");
       }
 
       await openai.beta.threads.messages.create(threadId, {
         role: "user",
-        content: `Analiza el siguiente mensaje y extrae los alimentos mencionados, ignorando verbos como "desayuné", "almorcé", "comí", "cené", etc. Proporciona las calorías aproximadas y macronutrientes para: ${messageContent}`,
+        content: `Analiza el siguiente mensaje y proporciona un análisis nutricional en el siguiente formato:
+
+Alimento: [nombre]
+Calorías: [X] kcal
+Proteínas: [X]g
+Grasas: [X]g
+Carbohidratos: [X]g
+
+Mensaje a analizar: ${messageContent}`,
       });
     }
 
@@ -163,27 +171,90 @@ async function processMessageWithAI(threadId, content, isImage = false) {
   }
 }
 
-// Modify saveMealForUser function to handle errors better
-async function saveMealForUser(userId, mealInfo) {
+// Modify parseNutritionInfo to validate response format
+function parseNutritionInfo(response) {
   try {
-    console.log('Saving meal:', { userId, mealInfo }); // Add debugging log
-
-    if (!userId || !mealInfo) {
-      throw new Error('Missing required data for saving meal');
+    // Verificar si es un mensaje de error
+    if (response.includes("¡Ups!") || response.includes("error")) {
+      throw new Error("Response contains error message");
     }
 
-    const { data, error } = await supabase
-      .from('meals')
-      .insert([
-        {
-          user_id: userId,
-          description: mealInfo,
-          created_at: new Date().toISOString()
-        }
-      ]);
+    const nutritionInfo = {
+      description: response,
+      kcal: null,
+      protein: null,
+      fat: null,
+      carbohydrates: null,
+    };
+
+    // Verificar que la respuesta tenga el formato esperado
+    const hasRequiredFormat = 
+      response.includes("Calorías:") &&
+      response.includes("Proteínas:") &&
+      response.includes("Grasas:") &&
+      response.includes("Carbohidratos:");
+
+    if (!hasRequiredFormat) {
+      throw new Error("Response does not have the required format");
+    }
+
+    // Buscar calorías (kcal)
+    const kcalMatch = response.match(/Calorías:\s*(\d+)\s*(?:kcal|calorías|cal)/i);
+    if (!kcalMatch) throw new Error("Missing calories information");
+    nutritionInfo.kcal = kcalMatch[1];
+
+    // Buscar proteínas
+    const proteinMatch = response.match(/Proteínas:\s*(\d+(?:\.\d+)?)\s*g/i);
+    if (!proteinMatch) throw new Error("Missing protein information");
+    nutritionInfo.protein = proteinMatch[1];
+
+    // Buscar grasas
+    const fatMatch = response.match(/Grasas:\s*(\d+(?:\.\d+)?)\s*g/i);
+    if (!fatMatch) throw new Error("Missing fat information");
+    nutritionInfo.fat = fatMatch[1];
+
+    // Buscar carbohidratos
+    const carbsMatch = response.match(/Carbohidratos:\s*(\d+(?:\.\d+)?)\s*g/i);
+    if (!carbsMatch) throw new Error("Missing carbohydrates information");
+    nutritionInfo.carbohydrates = carbsMatch[1];
+
+    return nutritionInfo;
+  } catch (error) {
+    console.error("Error parsing nutrition info:", error);
+    return null; // Retornamos null en lugar de un objeto con valores nulos
+  }
+}
+
+// Modify saveMealForUser to only save valid responses
+async function saveMealForUser(userId, mealInfo) {
+  try {
+    console.log("Saving meal:", { userId, mealInfo });
+
+    if (!userId || !mealInfo) {
+      throw new Error("Missing required data for saving meal");
+    }
+
+    const parsedInfo = parseNutritionInfo(mealInfo);
+    
+    // Solo guardar si el parsing fue exitoso
+    if (!parsedInfo) {
+      throw new Error("Invalid meal information format");
+    }
+
+    const { data, error } = await supabase.from("meals").insert([
+      {
+        user_id: userId,
+        description: parsedInfo.description,
+        kcal: parsedInfo.kcal,
+        protein: parsedInfo.protein,
+        fat: parsedInfo.fat,
+        carbohydrates: parsedInfo.carbohydrates,
+        created_at: new Date().toISOString(),
+      },
+    ]);
 
     if (error) {
-      console.error('Supabase error:', error);
+      console.error("Supabase error:", error);
       throw error;
     }
     return data;
@@ -193,44 +264,67 @@ async function saveMealForUser(userId, mealInfo) {
   }
 }
 
-// Modify getDailySummary function to use Supabase
+// Modify getDailySummary to be más explícito con el userId
 async function getDailySummary(userId) {
   try {
-    // Get today's date at midnight
+    if (!userId) {
+      throw new Error("User ID is required for getting daily summary");
+    }
+
+    // Get today's date at start of day in user's timezone
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
+    console.log(`Getting daily summary for user ${userId} from ${today.toISOString()}`);
+
     const { data, error } = await supabase
       .from("meals")
-      .select("*")
+      .select("description, kcal, protein, fat, carbohydrates, created_at")
       .eq("user_id", userId)
       .gte("created_at", today.toISOString())
       .order("created_at", { ascending: true });
 
-    if (error) throw error;
-
-    if (!data || data.length === 0) {
-      return "No has registrado comidas hoy.";
+    if (error) {
+      console.error("Error fetching meals:", error);
+      throw error;
     }
 
-    let summary = "📋 Resumen del día:\n\n";
+    if (!data || data.length === 0) {
+      return "No has registrado comidas hoy. ¡Empecemos! 🍽️";
+    }
+
+    let summary = "📋 Resumen de tus comidas del día:\n\n";
+    let totalKcal = 0;
+    let totalProtein = 0;
+    let totalFat = 0;
+    let totalCarbs = 0;
 
     data.forEach((meal, index) => {
-      const mealTime = new Date(meal.created_at).toLocaleTimeString();
+      const mealTime = new Date(meal.created_at).toLocaleTimeString('es-ES', {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+      
       summary += `🕐 Comida ${index + 1} (${mealTime}):\n${meal.description}\n\n`;
+
+      // Sumar los valores nutricionales con validación
+      totalKcal += Number(meal.kcal) || 0;
+      totalProtein += Number(meal.protein) || 0;
+      totalFat += Number(meal.fat) || 0;
+      totalCarbs += Number(meal.carbohydrates) || 0;
     });
 
-    // Opcional: Borrar las comidas después de mostrar el resumen
-    // await supabase
-    //   .from('meals')
-    //   .delete()
-    //   .eq('user_id', userId)
-    //   .gte('created_at', today.toISOString());
+    // Agregar totales al resumen con emojis relevantes
+    summary += "📊 Totales del día:\n";
+    summary += `🔥 Calorías totales: ${totalKcal} kcal\n`;
+    summary += `💪 Proteínas totales: ${totalProtein.toFixed(1)}g\n`;
+    summary += `🥑 Grasas totales: ${totalFat.toFixed(1)}g\n`;
+    summary += `🌾 Carbohidratos totales: ${totalCarbs.toFixed(1)}g\n`;
 
     return summary;
   } catch (error) {
-    console.error("Error getting daily summary from Supabase:", error);
-    return "Error al obtener el resumen diario.";
+    console.error(`Error getting daily summary for user ${userId}:`, error);
+    return "Error al obtener tu resumen diario. Por favor, intenta nuevamente.";
   }
 }
 
@@ -257,6 +351,7 @@ bot.on("message", async (msg) => {
     }
 
     if (msg.text === "Terminar el día") {
+      bot.sendMessage(chatId, "📊 Generando tu resumen del día...");
       const summary = await getDailySummary(userId);
       bot.sendMessage(chatId, summary);
       return;
@@ -312,16 +407,27 @@ bot.on("message", async (msg) => {
 
     if (response && shouldAnalyze) {
       try {
-        await saveMealForUser(userId, response);
-        await bot.sendMessage(chatId, response);
+        const parsedInfo = parseNutritionInfo(response);
+        if (parsedInfo) {
+          await saveMealForUser(userId, response);
+          await bot.sendMessage(chatId, response);
+        } else {
+          await bot.sendMessage(
+            chatId,
+            "Lo siento, no pude analizar correctamente la información nutricional. ¿Podrías intentar describirlo de otra manera?"
+          );
+        }
       } catch (error) {
         console.error("Error saving meal:", error);
-        throw error;
+        await bot.sendMessage(
+          chatId,
+          "No pude guardar la información de tu comida. ¿Podrías intentarlo de nuevo?"
+        );
       }
     }
   } catch (error) {
     console.error("Error detallado en el manejador de mensajes:", error);
-    
+
     // Send a more specific error message
     let errorMessage = "¡Ups! 🙈 Ha ocurrido un error. ";
     if (error.message.includes("Missing required data")) {
