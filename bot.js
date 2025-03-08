@@ -177,7 +177,7 @@ async function saveMealForUser(userId, mealInfo) {
       .insert([
         {
           user_id: userId,
-          info: mealInfo,
+          description: mealInfo,
           created_at: new Date().toISOString()
         }
       ]);
@@ -217,7 +217,7 @@ async function getDailySummary(userId) {
 
     data.forEach((meal, index) => {
       const mealTime = new Date(meal.created_at).toLocaleTimeString();
-      summary += `🕐 Comida ${index + 1} (${mealTime}):\n${meal.info}\n\n`;
+      summary += `🕐 Comida ${index + 1} (${mealTime}):\n${meal.description}\n\n`;
     });
 
     // Opcional: Borrar las comidas después de mostrar el resumen
