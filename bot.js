@@ -38,6 +38,36 @@ async function downloadImage(url) {
   });
 }
 
+async function downloadFile(fileLink) {
+  return new Promise((resolve, reject) => {
+    https.get(fileLink, (response) => {
+      const chunks = [];
+      response.on('data', (chunk) => chunks.push(chunk));
+      response.on('end', () => resolve(Buffer.concat(chunks)));
+      response.on('error', reject);
+    });
+  });
+}
+
+async function transcribeAudio(audioBuffer) {
+  try {
+    const tempFilePath = `temp_${Date.now()}.ogg`;
+    fs.writeFileSync(tempFilePath, audioBuffer);
+
+    const transcription = await openai.audio.transcriptions.create({
+      file: fs.createReadStream(tempFilePath),
+      model: "whisper-1",
+    });
+
+    // Limpiar el archivo temporal
+    fs.unlinkSync(tempFilePath);
+    return transcription.text;
+  } catch (error) {
+    console.error("Error transcribiendo audio:", error);
+    throw error;
+  }
+}
+
 async function processMessageWithAI(threadId, content, isImage = false) {
   try {
     // Crear el mensaje en el thread
@@ -58,9 +88,10 @@ async function processMessageWithAI(threadId, content, isImage = false) {
         ]
       });
     } else {
+      // Modificar el prompt para manejar mejor las descripciones de comidas
       await openai.beta.threads.messages.create(threadId, {
         role: "user",
-        content: content
+        content: `Analiza el siguiente mensaje y extrae los alimentos mencionados, ignorando verbos como "desayuné", "almorcé", "comí", "cené", etc. Proporciona las calorías aproximadas y macronutrientes para: ${content}`
       });
     }
 
@@ -132,12 +163,13 @@ bot.on("message", async (msg) => {
     if (msg.text === "/start") {
       bot.sendMessage(
         chatId,
-        "¡Hola! 👋 Soy tu asistente nutricional 🥗\n\n" +
-        "Puedes enviarme:\n" +
+        "¡Hola! 👋 Soy tu asistente para llevar un registro de tus comidas 🍽️ \n\n" +
+        "Podés enviarme:\n" +
         "- Fotos de comidas 📸\n" +
-        "- Descripciones de lo que comes ✍️\n" +
+        "- Descripciones de lo que has comido ✍️\n" +
+        "- Mensajes de voz describiendo tus comidas 🎤\n" +
         "- 'Terminar el día' para ver tu resumen diario 📋\n\n" +
-        "¡Empecemos! ¿Qué has comido?"
+        "¡Empecemos! ¿Qué has comido hoy?"
       );
       return;
     }
@@ -148,19 +180,31 @@ bot.on("message", async (msg) => {
       return;
     }
 
-    bot.sendMessage(chatId, "Analizando tu comida...");
-
     let response;
+    let shouldAnalyze = false;
+
     if (msg.photo) {
-      // Obtener la foto en la mejor calidad disponible
+      shouldAnalyze = true;
+      bot.sendMessage(chatId, "Analizando imagen ⌛️");
       const photo = msg.photo[msg.photo.length - 1];
       const fileLink = await bot.getFileLink(photo.file_id);
       response = await processMessageWithAI(threadId, fileLink, true);
+    } else if (msg.voice) {
+      shouldAnalyze = true;
+      bot.sendMessage(chatId, "Transcribiendo audio ⌛️");
+      const fileLink = await bot.getFileLink(msg.voice.file_id);
+      const audioBuffer = await downloadFile(fileLink);
+      const transcription = await transcribeAudio(audioBuffer);
+      bot.sendMessage(chatId, "Analizando tu mensaje ⌛️");
+      response = await processMessageWithAI(threadId, transcription);
     } else if (msg.text) {
+      // Verificar si el texto está relacionado con comida usando el asistente
+      shouldAnalyze = true;
+      bot.sendMessage(chatId, "Analizando ⌛️");
       response = await processMessageWithAI(threadId, msg.text);
     }
 
-    if (response) {
+    if (response && shouldAnalyze) {
       saveMealForUser(userId, response);
       bot.sendMessage(chatId, response);
     }
