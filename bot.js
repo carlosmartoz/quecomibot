@@ -46,21 +46,6 @@ async function getOrCreateThread(userId) {
   return userThreads.get(userId);
 }
 
-// Download image from URL and return as buffer
-async function downloadImage(url) {
-  return new Promise((resolve, reject) => {
-    https.get(url, (response) => {
-      const chunks = [];
-
-      response.on("data", (chunk) => chunks.push(chunk));
-
-      response.on("end", () => resolve(Buffer.concat(chunks)));
-
-      response.on("error", reject);
-    });
-  });
-}
-
 // Download file from Telegram and return as buffer
 async function downloadFile(fileLink) {
   return new Promise((resolve, reject) => {
@@ -284,6 +269,19 @@ bot.on("message", async (msg) => {
     );
   }
 });
+
+// Fake server to keep Render from complaining
+const PORT = process.env.PORT || 3000;
+
+http
+  .createServer((req, res) => {
+    res.write("QueComí is running...");
+
+    res.end();
+  })
+  .listen(PORT, () => {
+    console.log(`✅ QueComí is running on port ${PORT}`);
+  });
 
 // Log bot startup
 console.log("🤖 QueComí Started...");
