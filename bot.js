@@ -6,16 +6,22 @@ const TelegramBot = require("node-telegram-bot-api");
 const OpenAI = require("openai");
 const fs = require("fs");
 const https = require("https");
+const { createClient } = require("@supabase/supabase-js");
 
 // Get environment variables
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const ASSISTANT_ID = process.env.ASSISTANT_ID;
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
 
 // Initialize OpenAI client
 const openai = new OpenAI({
   apiKey: OPENAI_API_KEY,
 });
+
+// Inicializar el cliente de Supabase
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let bot;
 
@@ -100,7 +106,6 @@ async function transcribeAudio(audioBuffer) {
 // Process message with OpenAI Assistant
 async function processMessageWithAI(threadId, content, isImage = false) {
   try {
-    // Add console.log for debugging
     console.log("Processing message:", { threadId, content, isImage });
 
     if (isImage) {
@@ -109,7 +114,7 @@ async function processMessageWithAI(threadId, content, isImage = false) {
         content: [
           {
             type: "text",
-            text: "Analiza esta imagen de comida y proporciona las calorías aproximadas y macronutrientes. Si ves varios alimentos, lista cada uno por separado.",
+            text: "Analiza esta imagen de comida",
           },
           {
             type: "image_url",
@@ -120,7 +125,6 @@ async function processMessageWithAI(threadId, content, isImage = false) {
         ],
       });
     } else {
-      // Ensure content is a string
       const messageContent = String(content).trim();
       if (!messageContent) {
         throw new Error("Empty message content");
@@ -128,7 +132,7 @@ async function processMessageWithAI(threadId, content, isImage = false) {
 
       await openai.beta.threads.messages.create(threadId, {
         role: "user",
-        content: `Analiza el siguiente mensaje y proporciona un análisis nutricional en el siguiente formato: ${messageContent}`,
+        content: messageContent,
       });
     }
 
@@ -156,22 +160,19 @@ async function processMessageWithAI(threadId, content, isImage = false) {
     } while (runStatus !== "completed");
 
     const messages = await openai.beta.threads.messages.list(threadId);
-
     const lastMessage = messages.data[0];
-
     return lastMessage.content[0].text.value;
   } catch (error) {
     console.error("Error detallado en processMessageWithAI:", error);
-    throw error; // Re-throw the error to handle it in the main message handler
+    throw error;
   }
 }
 
 // Modify parseNutritionInfo to separate description from nutritional values
 function parseNutritionInfo(response) {
   try {
-    // Verificar si es un mensaje de error
-    if (response.includes("¡Ups!") || response.includes("error")) {
-      throw new Error("Response contains error message");
+    if (response.includes("¡Oops!")) {
+      throw new Error("Invalid input response");
     }
 
     const nutritionInfo = {
@@ -182,24 +183,15 @@ function parseNutritionInfo(response) {
       carbohydrates: null,
     };
 
-    // Verificar que la respuesta tenga el formato esperado
-    const hasRequiredFormat = 
-      response.includes("Calorías:") &&
-      response.includes("Proteínas:") &&
-      response.includes("Grasas:") &&
-      response.includes("Carbohidratos:");
-
-    if (!hasRequiredFormat) {
-      throw new Error("Response does not have the required format");
-    }
-
-    // Extraer el nombre del alimento
-    const foodMatch = response.match(/Alimento:\s*([^\n]+)/i);
+    // Extraer el nombre del plato
+    const foodMatch = response.match(/🍽️\s*Plato:\s*([^\n]+)/i) || 
+                     response.match(/🥣\s*Plato:\s*([^\n]+)/i) ||
+                     response.match(/🍔\s*Plato:\s*([^\n]+)/i);
     if (!foodMatch) throw new Error("Missing food name");
     nutritionInfo.description = foodMatch[1].trim();
 
-    // Buscar calorías (kcal)
-    const kcalMatch = response.match(/Calorías:\s*(\d+)\s*(?:kcal|calorías|cal)/i);
+    // Buscar calorías
+    const kcalMatch = response.match(/Calorías:\s*(\d+)\s*kcal/i);
     if (!kcalMatch) throw new Error("Missing calories information");
     nutritionInfo.kcal = parseInt(kcalMatch[1]);
 
@@ -218,7 +210,7 @@ function parseNutritionInfo(response) {
     if (!carbsMatch) throw new Error("Missing carbohydrates information");
     nutritionInfo.carbohydrates = parseFloat(carbsMatch[1]);
 
-    // Validar que todos los valores numéricos sean válidos
+    // Validar valores numéricos
     if (isNaN(nutritionInfo.kcal) || 
         isNaN(nutritionInfo.protein) || 
         isNaN(nutritionInfo.fat) || 
@@ -226,8 +218,7 @@ function parseNutritionInfo(response) {
       throw new Error("Invalid numerical values");
     }
 
-    console.log("Parsed nutrition info:", nutritionInfo); // Para debugging
-
+    console.log("Parsed nutrition info:", nutritionInfo);
     return nutritionInfo;
   } catch (error) {
     console.error("Error parsing nutrition info:", error);
@@ -238,15 +229,16 @@ function parseNutritionInfo(response) {
 // Modify saveMealForUser to only save valid responses
 async function saveMealForUser(userId, mealInfo) {
   try {
-    console.log("Saving meal:", { userId, mealInfo });
+    console.log("Iniciando guardado de comida:", { userId });
+    console.log("Información recibida:", mealInfo);
 
     if (!userId || !mealInfo) {
       throw new Error("Missing required data for saving meal");
     }
 
     const parsedInfo = parseNutritionInfo(mealInfo);
+    console.log("Información parseada:", parsedInfo);
     
-    // Solo guardar si el parsing fue exitoso
     if (!parsedInfo) {
       throw new Error("Invalid meal information format");
     }
@@ -272,7 +264,7 @@ async function saveMealForUser(userId, mealInfo) {
     }
     return data;
   } catch (error) {
-    console.error("Error detallado al guardar en Supabase:", error);
+    console.error("Error completo al guardar:", error);
     throw error;
   }
 }
@@ -448,35 +440,34 @@ bot.on("message", async (msg) => {
 
     if (response && shouldAnalyze) {
       try {
+        console.log("Respuesta de la IA:", response); // Agregar log
         const parsedInfo = parseNutritionInfo(response);
+        console.log("Información parseada:", parsedInfo); // Agregar log
+
         if (parsedInfo) {
           await saveMealForUser(userId, response);
-          await bot.sendMessage(chatId, response);
+          await bot.sendMessage(chatId, `✅ Comida registrada:\n\n🍽️ ${parsedInfo.description}\n🔥 Calorías: ${parsedInfo.kcal} kcal\n💪 Proteínas: ${parsedInfo.protein}g\n🥑 Grasas: ${parsedInfo.fat}g\n🌾 Carbohidratos: ${parsedInfo.carbohydrates}g`);
         } else {
-          await bot.sendMessage(
-            chatId,
-            "Lo siento, no pude analizar correctamente la información nutricional. ¿Podrías intentar describirlo de otra manera?"
-          );
+          throw new Error("No se pudo parsear la información nutricional");
         }
       } catch (error) {
-        console.error("Error saving meal:", error);
+        console.error("Error completo:", error);
         await bot.sendMessage(
           chatId,
-          "No pude guardar la información de tu comida. ¿Podrías intentarlo de nuevo?"
+          "Lo siento, no pude procesar correctamente la información nutricional. Por favor, asegúrate de describir la comida claramente."
         );
       }
     }
   } catch (error) {
-    console.error("Error detallado en el manejador de mensajes:", error);
-
-    // Send a more specific error message
+    console.error("Error completo en el manejador de mensajes:", error);
+    
     let errorMessage = "¡Ups! 🙈 Ha ocurrido un error. ";
-    if (error.message.includes("Missing required data")) {
-      errorMessage += "No se pudo procesar la información de la comida.";
+    if (error.message.includes("Missing required data") || error.message.includes("Invalid meal")) {
+      errorMessage += "No se pudo procesar la información de la comida correctamente.";
     } else if (error.code === "PGRST301") {
       errorMessage += "Error al guardar en la base de datos.";
     } else {
-      errorMessage += "Por favor, intenta nuevamente en unos momentos.";
+      errorMessage += "Por favor, intenta nuevamente con una descripción más clara.";
     }
 
     await bot.sendMessage(chatId, errorMessage);
