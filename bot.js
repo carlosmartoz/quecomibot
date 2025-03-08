@@ -96,7 +96,9 @@ async function processMessageWithAI(threadId, content, isImage = false) {
             type: "text",
             text: `Analiza esta imagen de comida y proporciona las calorías aproximadas y macronutrientes.
 
-Si hay múltiples alimentos en la imagen, enuméralos por separado con números (1., 2., etc.) y proporciona las calorías y macronutrientes para CADA UNO individualmente.
+IMPORTANTE: Trata cada plato completo como una sola unidad. Por ejemplo, si ves "milanesa con papas" es UN SOLO plato, no lo separes en "milanesa" y "papas". Solo separa los alimentos cuando claramente son elementos distintos y separados en la imagen.
+
+Si hay múltiples alimentos DISTINTOS en la imagen, enuméralos por separado con números (1., 2., etc.) y proporciona las calorías y macronutrientes para CADA UNO individualmente.
 
 Para cada alimento, usa este formato exacto:
 🍽️ Plato: [nombre del alimento]
@@ -121,6 +123,14 @@ Para cada alimento, usa este formato exacto:
         content: `Analiza el siguiente mensaje y extrae los alimentos mencionados, ignorando verbos como "desayuné", "almorcé", "comí", "cené", etc. 
         
 Si hay múltiples alimentos, enuméralos por separado con números (1., 2., etc.) y proporciona las calorías y macronutrientes para CADA UNO individualmente.
+IMPORTANTE: Trata cada plato completo como una sola unidad. Por ejemplo, "milanesa con papas" es UN SOLO plato, no lo separes en "milanesa" y "papas". Solo separa los alimentos cuando claramente son elementos distintos separados por comas o "y".
+
+Ejemplos:
+- "milanesa con puré" → UN solo plato
+- "café con leche y tostadas" → DOS platos (café con leche + tostadas)
+- "1 mcflurry, 1 alfajor, 1 galletita" → TRES platos separados
+
+Si hay múltiples alimentos SEPARADOS, enuméralos por separado con números (1., 2., etc.) y proporciona las calorías y macronutrientes para CADA UNO individualmente.
 
 Para cada alimento, usa este formato exacto:
 🍽️ Plato: [nombre del alimento]
