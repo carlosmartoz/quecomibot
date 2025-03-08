@@ -6,12 +6,18 @@ const TelegramBot = require("node-telegram-bot-api");
 const OpenAI = require("openai");
 const fs = require("fs");
 const https = require("https");
+const { createClient } = require('@supabase/supabase-js');
 
 // Get environment variables
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
 const WEBHOOK_URL = process.env.WEBHOOK_URL;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const ASSISTANT_ID = process.env.ASSISTANT_ID;
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_KEY;
+
+// Initialize Supabase client
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY); // Used in saveMealForUser function
 
 // Initialize OpenAI client
 const openai = new OpenAI({
@@ -139,7 +145,7 @@ async function processMessageWithAI(threadId, content, isImage = false) {
 }
 
 // Save meal information for a user
-function saveMealForUser(userId, mealInfo) {
+async function saveMealForUser(userId, mealInfo) {
   if (!userMeals.has(userId)) {
     userMeals.set(userId, []);
   }
@@ -150,6 +156,47 @@ function saveMealForUser(userId, mealInfo) {
     timestamp: new Date(),
     info: mealInfo,
   });
+  
+  // Extract meal data from the formatted string
+  try {
+    // Extract description (the dish name)
+    const descriptionMatch = mealInfo.match(/🍽️ Plato: (.*?)(\n|$)/);
+    const description = descriptionMatch ? descriptionMatch[1].trim() : "";
+    
+    // Extract nutritional values
+    const kcalMatch = mealInfo.match(/Calorías: ([\d.]+) kcal/);
+    const proteinMatch = mealInfo.match(/Proteínas: ([\d.]+)g/);
+    const carbsMatch = mealInfo.match(/Carbohidratos: ([\d.]+)g/);
+    const fatMatch = mealInfo.match(/Grasas: ([\d.]+)g/);
+    
+    const kcal = kcalMatch ? kcalMatch[1] : "";
+    const protein = proteinMatch ? proteinMatch[1] : "";
+    const carbohydrates = carbsMatch ? carbsMatch[1] : "";
+    const fat = fatMatch ? fatMatch[1] : "";
+    
+    // Save to Supabase
+    const { data, error } = await supabase
+      .from('meals')
+      .insert([
+        { 
+          user_id: userId,
+          description: description,
+          created_at: new Date(),
+          kcal: kcal,
+          protein: protein,
+          fat: fat,
+          carbohydrates: carbohydrates
+        }
+      ]);
+      
+    if (error) {
+      console.error("Error saving meal to database:", error);
+    } else {
+      console.log("Meal saved successfully:", data);
+    }
+  } catch (error) {
+    console.error("Error parsing or saving meal data:", error);
+  }
 }
 
 // Get daily summary of meals for a user
@@ -171,6 +218,57 @@ function getDailySummary(userId) {
   userMeals.set(userId, []);
 
   return summary;
+}
+
+// Get today's meals from Supabase for a user (Argentina timezone)
+async function getTodaysMealsFromDB(userId) {
+  try {
+    // Get current date in Argentina timezone (UTC-3)
+    const now = new Date();
+    // Adjust to Argentina timezone (UTC-3)
+    const argentinaTime = new Date(now.getTime() - (3 * 60 * 60 * 1000));
+    const todayStart = new Date(argentinaTime);
+    todayStart.setHours(0, 0, 0, 0);
+    
+    const todayEnd = new Date(argentinaTime);
+    todayEnd.setHours(23, 59, 59, 999);
+    
+    // Query Supabase for today's meals
+    const { data, error } = await supabase
+      .from('meals')
+      .select('*')
+      .eq('user_id', userId)
+      .gte('created_at', todayStart.toISOString())
+      .lte('created_at', todayEnd.toISOString())
+      .order('created_at', { ascending: true });
+    
+    if (error) {
+      console.error("Error fetching meals from database:", error);
+      return "Error al obtener el resumen de comidas. Por favor, intenta nuevamente.";
+    }
+    
+    if (!data || data.length === 0) {
+      return "No has registrado comidas hoy.";
+    }
+    
+    let summary = "📋 Resumen de hoy (Hora Argentina):\n\n";
+    
+    data.forEach((meal, index) => {
+      const mealTime = new Date(meal.created_at);
+      summary += `🕐 Comida ${index + 1} (${mealTime.toLocaleTimeString('es-AR')}):\n`;
+      summary += `🍽️ Plato: ${meal.description}\n`;
+      summary += `📊 Nutrientes:\n`;
+      summary += `  • Calorías: ${meal.kcal} kcal\n`;
+      summary += `  • Proteínas: ${meal.protein}g\n`;
+      summary += `  • Carbohidratos: ${meal.carbohydrates}g\n`;
+      summary += `  • Grasas: ${meal.fat}g\n\n`;
+    });
+    
+    return summary;
+  } catch (error) {
+    console.error("Error in getTodaysMealsFromDB:", error);
+    return "Error al obtener el resumen de comidas. Por favor, intenta nuevamente.";
+  }
 }
 
 // Handle incoming messages
@@ -199,6 +297,13 @@ bot.on("message", async (msg) => {
     if (msg.text === "Terminar el día") {
       const summary = getDailySummary(userId);
       bot.sendMessage(chatId, summary);
+      return;
+    }
+
+    if (msg.text && msg.text.toLowerCase() === "resumen") {
+      bot.sendMessage(chatId, "Obteniendo el resumen de tus comidas de hoy...");
+      const dbSummary = await getTodaysMealsFromDB(userId);
+      bot.sendMessage(chatId, dbSummary);
       return;
     }
 
