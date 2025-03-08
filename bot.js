@@ -272,7 +272,7 @@ bot.on("message", async (msg) => {
 });
 
 // Create a fake server to keep Render from complaining
-const PORT = process.env.PORT || 3000;
+const PORT = 3000;
 
 // Create a fake server to keep Render from complaining
 http
