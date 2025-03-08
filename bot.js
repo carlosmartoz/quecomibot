@@ -17,20 +17,6 @@ const openai = new OpenAI({
   apiKey: OPENAI_API_KEY,
 });
 
-// Create a fake server to keep Render from complaining
-const PORT = 3000;
-
-// Create a fake server to keep Render from complaining
-https
-  .createServer((req, res) => {
-    res.write("QueComí is running...");
-
-    res.end();
-  })
-  .listen(PORT, () => {
-    console.log(`✅ QueComí is running on port ${PORT}`);
-  });
-
 let bot;
 
 // Check if there is a previous instance running
