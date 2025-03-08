@@ -1,17 +1,10 @@
 {
-  "scripts": {
-    "start": "node dist/api/webhook.js",
-    "build": "tsc"
-  },
   "dependencies": {
-    "@google-cloud/vision": "^4.3.3",
     "dotenv": "^16.4.7",
     "node-telegram-bot-api": "^0.66.0",
-    "openai": "^4.86.2",
-    "@vercel/node": "^3.0.0"
+    "openai": "^4.86.2"
   },
   "devDependencies": {
-    "@types/node": "^20.13.10",
-    "typescript": "^5.0.0"
+    "@types/node": "^20.13.10"
   }
 }
