@@ -367,6 +367,12 @@ async function getTodaysMealsFromDB(userId) {
     
     let summary = "📋 Resumen de hoy (Hora Argentina):\n\n";
     
+    // Track total nutritional values
+    let totalKcal = 0;
+    let totalProtein = 0;
+    let totalCarbs = 0;
+    let totalFat = 0;
+    
     data.forEach((meal, index) => {
       // Convert UTC time from Supabase back to Argentina time for display
       const mealTimeUTC = new Date(meal.created_at);
@@ -381,7 +387,20 @@ async function getTodaysMealsFromDB(userId) {
       summary += `  • Proteínas: ${meal.protein || '0'}g\n`;
       summary += `  • Carbohidratos: ${meal.carbohydrates || '0'}g\n`;
       summary += `  • Grasas: ${meal.fat || '0'}g\n\n`;
+      
+      // Add to totals (convert to numbers and handle empty values)
+      totalKcal += parseFloat(meal.kcal || 0);
+      totalProtein += parseFloat(meal.protein || 0);
+      totalCarbs += parseFloat(meal.carbohydrates || 0);
+      totalFat += parseFloat(meal.fat || 0);
     });
+    
+    // Add total summary section
+    summary += `📊 TOTAL DEL DÍA:\n`;
+    summary += `  • Calorías totales: ${totalKcal.toFixed(1)} kcal\n`;
+    summary += `  • Proteínas totales: ${totalProtein.toFixed(1)}g\n`;
+    summary += `  • Carbohidratos totales: ${totalCarbs.toFixed(1)}g\n`;
+    summary += `  • Grasas totales: ${totalFat.toFixed(1)}g\n`;
 
     return summary;
   } catch (error) {
