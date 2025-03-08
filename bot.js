@@ -24,8 +24,13 @@ const openai = new OpenAI({
   apiKey: OPENAI_API_KEY,
 });
 
+// IMPORTANT: Use ONLY ONE of these methods (polling OR webhook), not both!
 // For development, polling is easier to use
 const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: true });
+
+// If you want to use webhook instead, comment out the polling above and uncomment this:
+// const bot = new TelegramBot(TELEGRAM_TOKEN);
+// bot.setWebHook(`${WEBHOOK_URL}/bot${TELEGRAM_TOKEN}`);
 
 // Store user conversations and meals
 const userThreads = new Map();
@@ -143,6 +148,12 @@ async function processMessageWithAI(threadId, content, isImage = false) {
 
 // Save meal information for a user
 async function saveMealForUser(userId, mealInfo) {
+  // Check if this is an error message - don't save errors as meals
+  if (mealInfo.includes("¡Ups!") || mealInfo.includes("Oops!") || mealInfo.includes("Error") || mealInfo.includes("siesta digestiva")) {
+    console.log("Skipping saving error message as meal");
+    return;
+  }
+
   if (!userMeals.has(userId)) {
     userMeals.set(userId, []);
   }
@@ -153,25 +164,29 @@ async function saveMealForUser(userId, mealInfo) {
     timestamp: new Date(),
     info: mealInfo,
   });
-
+  
   // Extract meal data from the formatted string
   try {
     // Extract description (the dish name)
     let description = "";
-
+    
     // Try to match with the "🍽️ Plato:" prefix first
     const descriptionMatch = mealInfo.match(/🍽️ Plato: (.*?)(\n|$)/);
     if (descriptionMatch) {
       description = descriptionMatch[1].trim();
     } else {
       // If no match, try to get the first line of the response as the dish name
-      const firstLineMatch = mealInfo.split("\n")[0];
+      const firstLineMatch = mealInfo.split('\n')[0];
       if (firstLineMatch) {
         // Remove any emoji or prefix if present
-        description = firstLineMatch
-          .replace(/^[^a-zA-ZáéíóúÁÉÍÓÚñÑ]*/, "")
-          .trim();
+        description = firstLineMatch.replace(/^[^a-zA-ZáéíóúÁÉÍÓÚñÑ]*/, '').trim();
       }
+    }
+    
+    // Don't save if we couldn't extract a proper description
+    if (!description) {
+      console.log("Skipping saving meal with empty description");
+      return;
     }
 
     // Extract nutritional values
@@ -274,7 +289,9 @@ async function getTodaysMealsFromDB(userId) {
       const mealTimeUTC = new Date(meal.created_at);
       const mealTimeArgentina = new Date(mealTimeUTC.getTime() - 3 * 60 * 60 * 1000);
       
-      summary += `🕐 Comida ${index + 1} (${mealTimeArgentina.toLocaleTimeString('es-AR')}):\n`;
+      // Use 24-hour format for time display
+      const timeOptions = { hour: '2-digit', minute: '2-digit', hour12: false };
+      summary += `🕐 Comida ${index + 1} (${mealTimeArgentina.toLocaleTimeString('es-AR', timeOptions)}):\n`;
       summary += `🍽️ Plato: ${meal.description || 'Sin descripción'}\n`;
       summary += `📊 Nutrientes:\n`;
       summary += `  • Calorías: ${meal.kcal || '0'} kcal\n`;
@@ -292,13 +309,11 @@ async function getTodaysMealsFromDB(userId) {
 
 // Handle incoming messages
 bot.on("message", async (msg) => {
-  const chatId = msg.chat.id;
-
-  const userId = msg.from.id;
-
-  const threadId = await getOrCreateThread(userId);
-
   try {
+    const chatId = msg.chat.id;
+    const userId = msg.from.id;
+    
+    // Handle commands first
     if (msg.text === "/start") {
       bot.sendMessage(
         chatId,
@@ -307,6 +322,7 @@ bot.on("message", async (msg) => {
           "- Fotos de comidas 📸\n" +
           "- Descripciones de lo que has comido ✍️\n" +
           "- Mensajes de voz describiendo tus comidas 🎤\n" +
+          "- 'resumen' para ver tus comidas de hoy 📋\n" +
           "- 'Terminar el día' para ver tu resumen diario 📋\n\n" +
           "¡Empecemos! ¿Qué has comido hoy?"
       );
@@ -325,52 +341,46 @@ bot.on("message", async (msg) => {
       bot.sendMessage(chatId, dbSummary);
       return;
     }
-
+    
+    // Process food-related content
+    const threadId = await getOrCreateThread(userId);
     let response;
 
-    let shouldAnalyze = false;
-
+    // Handle different types of food-related content
     if (msg.photo) {
-      shouldAnalyze = true;
-
+      // Photo processing
       bot.sendMessage(
         chatId,
         "🔍 ¡Detective gastronómico en acción! Analizando tu deliciosa comida... 🧐✨"
       );
 
       const photo = msg.photo[msg.photo.length - 1];
-
       const fileLink = await bot.getFileLink(photo.file_id);
-
       response = await processMessageWithAI(threadId, fileLink, true);
     } else if (msg.voice) {
-      shouldAnalyze = true;
-
+      // Voice message processing
       bot.sendMessage(
         chatId,
         "🎙️ ¡Escuchando atentamente tus palabras! Transformando tu audio en texto... ✨"
       );
 
       const fileLink = await bot.getFileLink(msg.voice.file_id);
-
       const audioBuffer = await downloadFile(fileLink);
-
       const transcription = await transcribeAudio(audioBuffer);
-
+      
       bot.sendMessage(
         chatId,
         "🔍 ¡Detective gastronómico en acción! Analizando tu deliciosa comida... 🧐✨"
       );
 
       response = await processMessageWithAI(threadId, transcription);
-    } else if (
-      msg.text &&
-      msg.text !== "/start" &&
-      msg.text !== "Terminar el día" &&
-      msg.text.toLowerCase() !== "resumen"
-    ) {
-      shouldAnalyze = true;
-
+    } else if (msg.text) {
+      // Text message processing - skip commands
+      if (msg.text === "/start" || msg.text === "Terminar el día" || msg.text.toLowerCase() === "resumen") {
+        // Skip processing commands as food
+        return;
+      }
+      
       bot.sendMessage(
         chatId,
         "🔍 ¡Detective gastronómico en acción! Analizando tu deliciosa comida... 🧐✨"
@@ -379,10 +389,11 @@ bot.on("message", async (msg) => {
       response = await processMessageWithAI(threadId, msg.text);
     }
 
-    if (response && shouldAnalyze) {
-      // Only save the AI-processed response
+    // Handle the response
+    if (response) {
+      // Save the meal information to database
       await saveMealForUser(userId, response);
-
+      // Send the response to the user
       bot.sendMessage(chatId, response);
     }
   } catch (error) {
