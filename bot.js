@@ -97,6 +97,9 @@ async function transcribeAudio(audioBuffer) {
 // Process message with OpenAI Assistant
 async function processMessageWithAI(threadId, content, isImage = false) {
   try {
+    // Add console.log for debugging
+    console.log('Processing message:', { threadId, content, isImage });
+
     if (isImage) {
       await openai.beta.threads.messages.create(threadId, {
         role: "user",
@@ -114,9 +117,15 @@ async function processMessageWithAI(threadId, content, isImage = false) {
         ],
       });
     } else {
+      // Ensure content is a string
+      const messageContent = String(content).trim();
+      if (!messageContent) {
+        throw new Error('Empty message content');
+      }
+
       await openai.beta.threads.messages.create(threadId, {
         role: "user",
-        content: `Analiza el siguiente mensaje y extrae los alimentos mencionados, ignorando verbos como "desayuné", "almorcé", "comí", "cené", etc. Proporciona las calorías aproximadas y macronutrientes para: ${content}`,
+        content: `Analiza el siguiente mensaje y extrae los alimentos mencionados, ignorando verbos como "desayuné", "almorcé", "comí", "cené", etc. Proporciona las calorías aproximadas y macronutrientes para: ${messageContent}`,
       });
     }
 
@@ -149,15 +158,20 @@ async function processMessageWithAI(threadId, content, isImage = false) {
 
     return lastMessage.content[0].text.value;
   } catch (error) {
-    console.error("Error processing message with AI:", error);
-
-    return "¡Ups! 🙈 Parece que mi cerebro nutricional está haciendo una pequeña siesta digestiva 😴. \n\n ¿Podrías intentarlo de nuevo en un momento? ¡Prometo estar más despierto! 🌟";
+    console.error("Error detallado en processMessageWithAI:", error);
+    throw error; // Re-throw the error to handle it in the main message handler
   }
 }
 
-// Modify saveMealForUser function to use Supabase
+// Modify saveMealForUser function to handle errors better
 async function saveMealForUser(userId, mealInfo) {
   try {
+    console.log('Saving meal:', { userId, mealInfo }); // Add debugging log
+
+    if (!userId || !mealInfo) {
+      throw new Error('Missing required data for saving meal');
+    }
+
     const { data, error } = await supabase
       .from('meals')
       .insert([
@@ -168,10 +182,13 @@ async function saveMealForUser(userId, mealInfo) {
         }
       ]);
 
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase error:', error);
+      throw error;
+    }
     return data;
   } catch (error) {
-    console.error("Error saving meal to Supabase:", error);
+    console.error("Error detallado al guardar en Supabase:", error);
     throw error;
   }
 }
@@ -220,12 +237,11 @@ async function getDailySummary(userId) {
 // Handle incoming messages
 bot.on("message", async (msg) => {
   const chatId = msg.chat.id;
-
   const userId = msg.from.id;
 
-  const threadId = await getOrCreateThread(userId);
-
   try {
+    const threadId = await getOrCreateThread(userId);
+
     if (msg.text === "/start") {
       bot.sendMessage(
         chatId,
@@ -295,17 +311,28 @@ bot.on("message", async (msg) => {
     }
 
     if (response && shouldAnalyze) {
-      await saveMealForUser(userId, response);
-
-      bot.sendMessage(chatId, response);
+      try {
+        await saveMealForUser(userId, response);
+        await bot.sendMessage(chatId, response);
+      } catch (error) {
+        console.error("Error saving meal:", error);
+        throw error;
+      }
     }
   } catch (error) {
-    console.error("Error:", error);
+    console.error("Error detallado en el manejador de mensajes:", error);
+    
+    // Send a more specific error message
+    let errorMessage = "¡Ups! 🙈 Ha ocurrido un error. ";
+    if (error.message.includes("Missing required data")) {
+      errorMessage += "No se pudo procesar la información de la comida.";
+    } else if (error.code === "PGRST301") {
+      errorMessage += "Error al guardar en la base de datos.";
+    } else {
+      errorMessage += "Por favor, intenta nuevamente en unos momentos.";
+    }
 
-    bot.sendMessage(
-      chatId,
-      "¡Ups! 🙈 Parece que mi cerebro nutricional está haciendo una pequeña siesta digestiva 😴. \n\n ¿Podrías intentarlo de nuevo en un momento? ¡Prometo estar más despierto! 🌟"
-    );
+    await bot.sendMessage(chatId, errorMessage);
   }
 });
 
