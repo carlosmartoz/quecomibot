@@ -98,7 +98,7 @@ async function processPayment(data) {
             userId,
             "🎉 ¡Felicitaciones! Tu suscripción Premium ha sido activada.\n\n" +
               "Beneficios activados:\n" +
-              "✨ Solicitudes ilimitadas\n" +
+              `✨ Solicitudes ilimitadas\n\n` +
               "¡Gracias por confiar en QueComí! 🙌"
           );
 

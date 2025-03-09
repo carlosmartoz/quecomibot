@@ -9,7 +9,8 @@ const client = new MercadoPagoConfig({
 
 // Create payment link
 async function createPaymentLink(userId) {
-  console.log(`Creating payment link for user ${userId}`);
+  console.log(`createPaymentLink: Creating payment link for user ${userId}`);
+
   try {
     const preference = new Preference(client);
     const preferenceData = {
@@ -30,15 +31,20 @@ async function createPaymentLink(userId) {
     };
 
     console.log(
-      "Creating preference with data:",
+      "createPaymentLink: Creating preference with data:",
       JSON.stringify(preferenceData, null, 2)
     );
+
     const response = await preference.create({ body: preferenceData });
-    console.log("Payment link created successfully:", response.init_point);
+
+    console.log(
+      "createPaymentLink: Payment link created successfully:",
+      response.init_point
+    );
 
     return response.init_point;
   } catch (error) {
-    console.error("Error creating payment link:", error);
+    console.error("createPaymentLink: Error creating payment link:", error);
 
     throw error;
   }
@@ -46,23 +52,30 @@ async function createPaymentLink(userId) {
 
 // Handle payment webhook
 async function handlePaymentWebhook(data) {
-  console.log("Received webhook data:", JSON.stringify(data, null, 2));
+  console.log(
+    "handlePaymentWebhook: Received webhook data:",
+    JSON.stringify(data, null, 2)
+  );
 
   try {
-    // Manejar el callback de éxito directamente
     if (data.status === "approved" && data.external_reference) {
       const userId = parseInt(data.external_reference);
-      console.log(`Payment approved from success callback for user ${userId}`);
+
+      console.log(
+        `handlePaymentWebhook: Payment approved from success callback for user ${userId}`
+      );
+
       return userId;
     }
 
-    // Manejar notificación IPN
     if (data.topic === "payment" && data.resource) {
       const paymentId = data.resource.split("/").pop();
-      console.log(`Processing payment ID: ${paymentId}`);
+
+      console.log(`handlePaymentWebhook: Processing payment ID: ${paymentId}`);
 
       try {
         const payment = new Payment(client);
+
         const paymentInfo = await payment.get({ id: paymentId });
 
         if (
@@ -70,18 +83,25 @@ async function handlePaymentWebhook(data) {
           paymentInfo.external_reference
         ) {
           const userId = parseInt(paymentInfo.external_reference);
-          console.log(`Payment approved for user ${userId} from IPN`);
+
+          console.log(
+            `handlePaymentWebhook: Payment approved for user ${userId} from IPN`
+          );
+
           return userId;
         }
       } catch (paymentError) {
-        console.log("Error fetching payment info:", paymentError.message);
+        console.log(
+          "handlePaymentWebhook: Error fetching payment info:",
+          paymentError.message
+        );
       }
     }
 
-    // Manejar notificación directa de pago
     if (data.type === "payment" && data.data && data.data.id) {
       try {
         const payment = new Payment(client);
+
         const paymentInfo = await payment.get({ id: data.data.id });
 
         if (
@@ -90,27 +110,33 @@ async function handlePaymentWebhook(data) {
         ) {
           const userId = parseInt(paymentInfo.external_reference);
           console.log(
-            `Payment approved for user ${userId} from direct notification`
+            `handlePaymentWebhook: Payment approved for user ${userId} from direct notification`
           );
           return userId;
         }
       } catch (paymentError) {
         console.log(
-          "Error fetching payment from direct notification:",
+          "handlePaymentWebhook: Error fetching payment from direct notification:",
           paymentError.message
         );
       }
     }
 
-    // Si llegamos aquí, no se encontró confirmación de pago válida
-    console.log("No valid payment confirmation found in webhook data");
+    console.log(
+      "handlePaymentWebhook: No valid payment confirmation found in webhook data"
+    );
+
     return null;
   } catch (error) {
-    console.error("Error processing payment webhook:", error);
+    console.error(
+      "handlePaymentWebhook: Error processing payment webhook:",
+      error
+    );
     return null;
   }
 }
 
+// Export the functions
 module.exports = {
   createPaymentLink,
   handlePaymentWebhook,

@@ -37,7 +37,7 @@ async function transcribeAudio(audioBuffer) {
 
     return transcription.text;
   } catch (error) {
-    console.error("Error transcribing audio:", error);
+    console.error("transcribeAudio: Error transcribing audio:", error);
 
     throw error;
   }
@@ -59,7 +59,9 @@ async function processMessageWithAI(threadId, content, isImage = false) {
     const runStatus = await waitForRunCompletion(threadId, run.id);
 
     if (runStatus !== "completed") {
-      throw new Error(`Run ended with status: ${runStatus}`);
+      throw new Error(
+        `processMessageWithAI: Run ended with status: ${runStatus}`
+      );
     }
 
     const messages = await openai.beta.threads.messages.list(threadId);
@@ -68,7 +70,10 @@ async function processMessageWithAI(threadId, content, isImage = false) {
 
     return lastMessage.content[0].text.value;
   } catch (error) {
-    console.error("Error processing message with AI:", error);
+    console.error(
+      "processMessageWithAI: Error processing message with AI:",
+      error
+    );
 
     return "¡Ups! 🙈 Parece que mi cerebro nutricional está haciendo una pequeña siesta digestiva 😴. \n\n ¿Podrías intentarlo de nuevo en un momento? ¡Prometo estar más despierto! 🌟";
   }
@@ -159,6 +164,7 @@ async function waitForRunCompletion(threadId, runId) {
   return runStatus;
 }
 
+// Export the functions
 module.exports = {
   getOrCreateThread,
   transcribeAudio,
