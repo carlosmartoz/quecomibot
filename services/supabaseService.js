@@ -510,7 +510,7 @@ async function updateProfessionalId(userId, professionalId) {
   try {
     const { error } = await supabase
       .from("patients")
-      .update({ professional_id: professionalId })
+      .update({ professional: professionalId })
       .eq("user_id", userId);
 
     if (error) {
@@ -538,8 +538,8 @@ module.exports = {
   getPatientByUserId,
   checkSubscriptions,
   getTodaysMealsFromDB,
-  updateUserSubscription,
-  decrementUserRequests,
-  revertToFreeSubscription,
   updateProfessionalId,
+  decrementUserRequests,
+  updateUserSubscription,
+  revertToFreeSubscription,
 };

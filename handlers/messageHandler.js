@@ -10,6 +10,7 @@ const processingMessages = new Map();
 // Add these at the top of the file with other state tracking variables
 const userStates = new Map();
 const userTempData = new Map();
+const awaitingProfessionalId = new Map();
 
 // Handle incoming messages
 async function handleMessage(bot, msg) {
@@ -49,13 +50,25 @@ async function handleMessage(bot, msg) {
       return handleSummaryCommand(bot, chatId, userId);
     }
 
+    if (msg.text && msg.text.toLowerCase() === "/profesional") {
+      return handleProfesionalCommand(bot, chatId, userId);
+    }
+
     if (userStates.has(userId)) {
       const handled = await handlePatientRegistration(bot, msg);
       if (handled) return;
     }
 
     // Check if we're waiting for professional ID
-    if (msg.session.awaitingProfessionalId) {
+    if (awaitingProfessionalId.get(userId)) {
+      if (!msg.text) {
+        await bot.sendMessage(
+          chatId,
+          "❌ Por favor, ingresa un ID válido (solo números)."
+        );
+        return;
+      }
+
       const professionalId = msg.text.trim();
 
       // Validate that the input is a number
@@ -73,17 +86,16 @@ async function handleMessage(bot, msg) {
           chatId,
           "✅ ¡Perfecto! El ID del profesional ha sido guardado correctamente."
         );
+        awaitingProfessionalId.delete(userId);
+        return;
       } catch (error) {
         console.error("Error saving professional ID:", error);
         await bot.sendMessage(
           chatId,
           "❌ Ocurrió un error al guardar el ID del profesional. Por favor, intenta nuevamente."
         );
+        return;
       }
-
-      // Reset the awaiting flag
-      msg.session.awaitingProfessionalId = false;
-      return;
     }
 
     return processFood(bot, msg, userId, chatId);
@@ -278,6 +290,23 @@ async function handlePremiumCommand(bot, chatId, userId) {
     );
 
     return;
+  }
+}
+
+// Handle /profesional command
+async function handleProfesionalCommand(bot, chatId, userId) {
+  try {
+    awaitingProfessionalId.set(userId, true);
+    await bot.sendMessage(
+      chatId,
+      "🏥 Por favor, ingresa el ID de tu médico profesional (solo números):"
+    );
+  } catch (error) {
+    console.error("Error in handleProfesionalCommand:", error);
+    await bot.sendMessage(
+      chatId,
+      "❌ Ocurrió un error. Por favor, intenta nuevamente."
+    );
   }
 }
 
