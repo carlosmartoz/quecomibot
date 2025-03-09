@@ -2,12 +2,13 @@
 const openaiService = require("../services/openaiService");
 const supabaseService = require("../services/supabaseService");
 const fileUtils = require("../utils/fileUtils");
+const mercadoPagoService = require("../services/mercadoPagoService");
 
 // Track processing messages
 const processingMessages = new Map();
 
 // Handle incoming messages
-async function handleMessage(bot, msg, createPaymentLink) {
+async function handleMessage(bot, msg) {
   try {
     const chatId = msg.chat.id;
     const userId = msg.from.id;
@@ -27,30 +28,39 @@ async function handleMessage(bot, msg, createPaymentLink) {
     }
 
     if (msg.text === "/premium") {
-      const chatId = msg.chat.id;
-      const userId = msg.from.id;
-
-      const paymentLink = await createPaymentLink(userId);
-
-      const options = {
-        reply_markup: {
-          inline_keyboard: [
-            [
-              {
-                text: "💵 Pagar con Mercado Pago",
-                url: paymentLink,
-              },
-            ],
-          ],
-        },
-      };
-
-      bot.sendMessage(
-        chatId,
-        "💳 Haz clic en el botón para completar el pago:",
-        options
-      );
-      return;
+      try {
+        const paymentLink = await mercadoPagoService.createPaymentLink(userId);
+        await bot.sendMessage(
+          chatId,
+          "🌟 ¡Actualiza a Premium! ��\n\n" +
+            "Beneficios Premium:\n" +
+            "✨ Análisis nutricional detallado\n" +
+            "📊 Estadísticas avanzadas\n" +
+            "🎯 Seguimiento de objetivos\n" +
+            "💪 Recomendaciones personalizadas\n\n" +
+            "Precio: $4,700 ARS",
+          {
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  {
+                    text: "💳 Pagar con MercadoPago",
+                    url: paymentLink,
+                  },
+                ],
+              ],
+            },
+          }
+        );
+        return;
+      } catch (error) {
+        console.error("Error creating payment link:", error);
+        bot.sendMessage(
+          chatId,
+          "Lo siento, hubo un error al procesar tu solicitud. Por favor, intenta más tarde."
+        );
+        return;
+      }
     }
 
     if (msg.text === "Terminar el día") {
