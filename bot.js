@@ -29,6 +29,11 @@ const openai = new OpenAI({
   apiKey: OPENAI_API_KEY,
 });
 
+// Initialize MercadoPago
+mercadopago.configure({
+  access_token: MERCADO_PAGO_ACCESS_TOKEN,
+});
+
 // Initialize Express app
 const app = express();
 
@@ -480,8 +485,47 @@ bot.on("message", async (msg) => {
     }
 
     if (msg.text === "/premium") {
-      console.log("Prueba");
+      // Create preference with MercadoPago
+      const preference = {
+        items: [
+          {
+            title: "Premium QueComí",
+            unit_price: 4700,
+            quantity: 1,
+            currency_id: "ARS",
+          },
+        ],
+        back_urls: {
+          success: `${WEBHOOK_URL}/success`,
+          failure: `${WEBHOOK_URL}/failure`,
+          pending: `${WEBHOOK_URL}/pending`,
+        },
+        external_reference: userId.toString(),
+        notification_url: `${WEBHOOK_URL}/webhook`,
+      };
 
+      try {
+        const response = await mercadopago.preferences.create(preference);
+        const paymentLink = response.body.init_point;
+
+        bot.sendMessage(
+          chatId,
+          "🌟 ¡Actualiza a Premium! 🌟\n\n" +
+            "Beneficios:\n" +
+            "✨ Análisis detallado de nutrientes\n" +
+            "📊 Estadísticas semanales y mensuales\n" +
+            "🎯 Objetivos personalizados\n" +
+            "🔍 Recomendaciones personalizadas\n\n" +
+            `[Obtener Premium](${paymentLink})`,
+          { parse_mode: "Markdown" }
+        );
+      } catch (error) {
+        console.error("Error creating payment preference:", error);
+        bot.sendMessage(
+          chatId,
+          "Lo siento, hubo un error al procesar tu solicitud. Por favor, intenta más tarde."
+        );
+      }
       return;
     }
 
