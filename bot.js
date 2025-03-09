@@ -544,129 +544,9 @@ bot.on("message", async (msg) => {
       return;
     }
 
-    // Add command handler for /editar
-    if (msg.text === "/editar") {
-      try {
-        const threadId = await getOrCreateThread(userId);
-        // Get the last meal for this user
-        const { data, error } = await supabase
-          .from("meals")
-          .select("*")
-          .eq("user_id", userId)
-          .order("created_at", { ascending: false })
-          .limit(1);
-
-        if (error) {
-          throw error;
-        }
-
-        if (!data || data.length === 0) {
-          await bot.sendMessage(
-            chatId,
-            "No hay comidas registradas para editar."
-          );
-          return;
-        }
-
-        const lastMeal = data[0];
-
-        // Store the meal ID for editing
-        userMeals.set(`editing_${userId}`, true);
-        userMeals.set(`edit_${userId}`, {
-          mealId: lastMeal.id,
-          originalDescription: lastMeal.description,
-        });
-
-        await bot.sendMessage(
-          chatId,
-          `📝 Última comida registrada:\n\n` +
-            `🍽️ Plato: ${lastMeal.description}\n` +
-            `📊 Nutrientes:\n` +
-            `• Calorías: ${lastMeal.kcal} kcal\n` +
-            `• Proteínas: ${lastMeal.protein}g\n` +
-            `• Carbohidratos: ${lastMeal.carbohydrates}g\n` +
-            `• Grasas: ${lastMeal.fat}g\n\n` +
-            `✏️ Por favor, escribe la nueva descripción del plato.`
-        );
-        return;
-      } catch (error) {
-        console.error("Error fetching last meal:", error);
-        await bot.sendMessage(
-          chatId,
-          "Ocurrió un error al buscar la última comida. Por favor, intenta nuevamente."
-        );
-        return;
-      }
-    }
-
-    // Check if user is in editing mode
-    if (userMeals.get(`editing_${userId}`)) {
-      processingMessages.set(userId, true);
-
-      processingMessage = await bot.sendMessage(
-        chatId,
-        "🔄 Recalculando valores nutricionales..."
-      );
-      
-      const threadId = await getOrCreateThread(userId);
-      // Process the edited text
-      response = await processMessageWithAI(threadId, msg.text);
-
-      // Get the edit info with meal ID
-      const editInfo = userMeals.get(`edit_${userId}`);
-
-      if (editInfo && editInfo.mealId) {
-        // Extract nutritional values from the AI response
-        const kcalMatch = response.match(/Calorías: ([\d.]+) kcal/);
-        const proteinMatch = response.match(/Proteínas: ([\d.]+)g/);
-        const carbsMatch = response.match(/Carbohidratos: ([\d.]+)g/);
-        const fatMatch = response.match(/Grasas: ([\d.]+)g/);
-
-        // Update the meal in Supabase
-        const { error } = await supabase
-          .from("meals")
-          .update({
-            description: msg.text,
-            kcal: kcalMatch ? kcalMatch[1] : null,
-            protein: proteinMatch ? proteinMatch[1] : null,
-            carbohydrates: carbsMatch ? carbsMatch[1] : null,
-            fat: fatMatch ? fatMatch[1] : null,
-          })
-          .eq("id", editInfo.mealId);
-
-        if (error) {
-          console.error("Error updating meal:", error);
-          await bot.sendMessage(
-            chatId,
-            "Ocurrió un error al actualizar la comida. Por favor, intenta nuevamente."
-          );
-        } else {
-          await bot.sendMessage(
-            chatId,
-            `✅ Comida actualizada correctamente!\n\n${response}`
-          );
-        }
-
-        // Clean up editing state
-        userMeals.delete(`editing_${userId}`);
-        userMeals.delete(`edit_${userId}`);
-        
-        // Delete the processing message
-        await bot.deleteMessage(chatId, processingMessage.message_id);
-        processingMessages.delete(userId);
-        return;
-      }
-
-      // Delete the processing message
-      await bot.deleteMessage(chatId, processingMessage.message_id);
-      return;
-    }
-
     // Process food-related content
     let shouldAnalyze = false;
-
     let processingMessage;
-
     let processingSecondMessage;
 
     if (msg.photo) {
@@ -716,38 +596,6 @@ bot.on("message", async (msg) => {
       response = await processMessageWithAI(threadId, msg.text);
     }
 
-    // Handle the response
-    if (response) {
-      if (processingSecondMessage) {
-        await bot.deleteMessage(chatId, processingSecondMessage.message_id);
-      } else {
-        await bot.deleteMessage(chatId, processingMessage.message_id);
-      }
-
-      // Store the response temporarily
-      userMeals.set(`temp_${userId}`, response);
-
-      // Send the response with confirmation buttons
-      await bot.sendMessage(
-        chatId,
-        response + "\n\n¿Los datos son correctos?",
-        {
-          reply_markup: {
-            inline_keyboard: [
-              [
-                {
-                  text: "✅ Confirmar",
-                  callback_data: `confirm_${Date.now()}`,
-                },
-                { text: "✏️ Editar", callback_data: `edit_${Date.now()}` },
-              ],
-            ],
-          },
-        }
-      );
-
-      processingMessages.delete(userId);
-    }
   } catch (error) {
     console.error("Error:", error);
 
@@ -756,62 +604,6 @@ bot.on("message", async (msg) => {
     bot.sendMessage(
       chatId,
       "¡Ups! 🙈 Parece que mi cerebro nutricional está haciendo una pequeña siesta digestiva 😴. \n\n ¿Podrías intentarlo de nuevo en un momento? ¡Prometo estar más despierto! 🌟"
-    );
-  }
-});
-
-// Handle callback queries from inline keyboard buttons
-bot.on("callback_query", async (callbackQuery) => {
-  try {
-    const chatId = callbackQuery.message.chat.id;
-    const userId = callbackQuery.from.id;
-    const data = callbackQuery.data;
-    const messageId = callbackQuery.message.message_id;
-
-    // Acknowledge the callback query
-    await bot.answerCallbackQuery(callbackQuery.id);
-
-    if (data.startsWith("confirm_")) {
-      // Get the stored response
-      const response = userMeals.get(`temp_${userId}`);
-      if (response) {
-        // Save to database
-        await saveMealForUser(userId, response);
-        // Delete temporary storage
-        userMeals.delete(`temp_${userId}`);
-        // Update message to remove buttons
-        await bot.editMessageText(response + "\n\n✅ Guardado correctamente!", {
-          chat_id: chatId,
-          message_id: messageId,
-          reply_markup: { inline_keyboard: [] },
-        });
-      }
-    } else if (data.startsWith("edit_")) {
-      // Get the stored response
-      const response = userMeals.get(`temp_${userId}`);
-      if (response) {
-        // Ask for the correction
-        await bot.sendMessage(
-          chatId,
-          "✏️ Por favor, escribe la corrección del plato.\n" +
-            "Por ejemplo: si dice 'milanesa con papas' y querés cambiarlo a 'milanesa con batatas', simplemente escribí el nuevo nombre."
-        );
-
-        // Store the original message ID for later reference
-        userMeals.set(`edit_${userId}`, {
-          messageId: messageId,
-          originalResponse: response,
-        });
-
-        // Set user state to editing
-        userMeals.set(`editing_${userId}`, true);
-      }
-    }
-  } catch (error) {
-    console.error("Error handling callback query:", error);
-    bot.sendMessage(
-      chatId,
-      "Ocurrió un error al procesar tu solicitud. Por favor, intenta nuevamente."
     );
   }
 });
