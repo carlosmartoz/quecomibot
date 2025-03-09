@@ -29,11 +29,6 @@ const openai = new OpenAI({
   apiKey: OPENAI_API_KEY,
 });
 
-// Initialize MercadoPago
-const mp = new mercadopago.MercadoPagoConfig({
-  accessToken: MERCADO_PAGO_ACCESS_TOKEN,
-});
-
 // Initialize Express app
 const app = express();
 
@@ -484,31 +479,6 @@ bot.on("message", async (msg) => {
       return;
     }
 
-    if (msg.text === "/premium") {
-      const preference = new mercadopago.Preference(mp);
-
-      const response = await preference.create({
-        items: [
-          {
-            title: "Suscripción Premium",
-            unit_price: 5.0,
-            quantity: 1,
-          },
-        ],
-        back_urls: {
-          success: "https://tu-bot.com/success",
-          failure: "https://tu-bot.com/failure",
-          pending: "https://tu-bot.com/pending",
-        },
-        auto_return: "approved",
-      });
-
-      console.log(response);
-      const paymentLink = response.init_point;
-
-      return;
-    }
-
     if (msg.text === "Terminar el día") {
       const summary = getDailySummary(userId);
       bot.sendMessage(chatId, summary);
@@ -603,6 +573,49 @@ bot.on("message", async (msg) => {
     bot.sendMessage(
       chatId,
       "¡Ups! 🙈 Parece que mi cerebro nutricional está haciendo una pequeña siesta digestiva 😴. \n\n ¿Podrías intentarlo de nuevo en un momento? ¡Prometo estar más despierto! 🌟"
+    );
+  }
+});
+
+// Comando para iniciar el pago
+bot.onText(/\/premium/, async (msg) => {
+  const chatId = msg.chat.id;
+
+  try {
+    // Crear preferencia de pago
+    const preference = new mercadopago.Preference(mp);
+
+    const response = await preference.create({
+      items: [
+        {
+          title: "Suscripción Premium",
+          description: "Acceso premium al bot por un mes",
+          unit_price: 5.0, // Precio en dólares o en la moneda configurada
+          quantity: 1,
+        },
+      ],
+      back_urls: {
+        success: "https://tubot.com/success", // URL de éxito
+        failure: "https://tubot.com/failure", // URL de fallo
+        pending: "https://tubot.com/pending", // URL de pago pendiente
+      },
+      auto_return: "approved",
+    });
+
+    // Obtener el enlace de pago
+    const paymentLink = response.init_point;
+
+    // Enviar el enlace de pago al usuario
+    bot.sendMessage(
+      chatId,
+      `💳 ¡Haz clic en el siguiente enlace para realizar el pago! 👇\n\n[➡️ Pagar ahora](${paymentLink})`,
+      { parse_mode: "Markdown" }
+    );
+  } catch (error) {
+    console.error("Error creando el pago:", error);
+    bot.sendMessage(
+      chatId,
+      "❌ Hubo un error al generar el enlace de pago. Inténtalo nuevamente más tarde."
     );
   }
 });
