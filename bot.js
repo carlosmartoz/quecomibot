@@ -449,6 +449,7 @@ bot.on("message", async (msg) => {
         chatId,
         "🤔 ¡Ups! Mi cerebro está procesando tu mensaje anterior. ¡Dame un momentito para ponerme al día! 🏃‍♂️💨"
       );
+
       return;
     }
 
@@ -488,6 +489,8 @@ bot.on("message", async (msg) => {
 
     let processingMessage;
 
+    let processingSecondMessage;
+
     if (msg.photo) {
       shouldAnalyze = true;
 
@@ -515,7 +518,7 @@ bot.on("message", async (msg) => {
       const audioBuffer = await downloadFile(fileLink);
       const transcription = await transcribeAudio(audioBuffer);
 
-      processingMessage = await bot.sendMessage(
+      processingSecondMessage = await bot.sendMessage(
         chatId,
         "🔍 ¡Detective gastronómico en acción! Analizando tu deliciosa comida... 🧐✨"
       );
@@ -543,7 +546,11 @@ bot.on("message", async (msg) => {
       // Send the response to the user
       bot.sendMessage(chatId, response);
 
-      await bot.deleteMessage(chatId, processingMessage.message_id);
+      if (processingSecondMessage) {
+        await bot.deleteMessage(chatId, processingSecondMessage.message_id);
+      } else {
+        await bot.deleteMessage(chatId, processingMessage.message_id);
+      }
 
       processingMessages.delete(userId);
     }
