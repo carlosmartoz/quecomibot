@@ -544,6 +544,108 @@ bot.on("message", async (msg) => {
       return;
     }
 
+    // Add new command handler for /editar
+    if (msg.text === "/editar") {
+      try {
+        // Get the last meal for this user
+        const { data, error } = await supabase
+          .from("meals")
+          .select("*")
+          .eq("user_id", userId)
+          .order("created_at", { ascending: false })
+          .limit(1);
+
+        if (error) {
+          throw error;
+        }
+
+        if (!data || data.length === 0) {
+          await bot.sendMessage(chatId, "No hay comidas registradas para editar.");
+          return;
+        }
+
+        const lastMeal = data[0];
+        
+        // Store the meal ID for editing
+        userMeals.set(`editing_${userId}`, true);
+        userMeals.set(`edit_${userId}`, {
+          mealId: lastMeal.id,
+          originalDescription: lastMeal.description
+        });
+
+        await bot.sendMessage(
+          chatId,
+          `📝 Última comida registrada:\n\n` +
+          `🍽️ Plato: ${lastMeal.description}\n` +
+          `📊 Nutrientes:\n` +
+          `• Calorías: ${lastMeal.kcal} kcal\n` +
+          `• Proteínas: ${lastMeal.protein}g\n` +
+          `• Carbohidratos: ${lastMeal.carbohydrates}g\n` +
+          `• Grasas: ${lastMeal.fat}g\n\n` +
+          `✏️ Por favor, escribe la nueva descripción del plato.`
+        );
+        return;
+      } catch (error) {
+        console.error("Error fetching last meal:", error);
+        await bot.sendMessage(chatId, "Ocurrió un error al buscar la última comida. Por favor, intenta nuevamente.");
+        return;
+      }
+    }
+
+    // Modify the existing editing handler
+    if (userMeals.get(`editing_${userId}`)) {
+      processingMessages.set(userId, true);
+      
+      processingMessage = await bot.sendMessage(
+        chatId,
+        "🔄 Recalculando valores nutricionales..."
+      );
+      
+      // Process the edited text
+      response = await processMessageWithAI(threadId, msg.text);
+      
+      // Get the edit info with meal ID
+      const editInfo = userMeals.get(`edit_${userId}`);
+      
+      if (editInfo && editInfo.mealId) {
+        // Extract nutritional values from the AI response
+        const kcalMatch = response.match(/Calorías: ([\d.]+) kcal/);
+        const proteinMatch = response.match(/Proteínas: ([\d.]+)g/);
+        const carbsMatch = response.match(/Carbohidratos: ([\d.]+)g/);
+        const fatMatch = response.match(/Grasas: ([\d.]+)g/);
+
+        // Update the meal in Supabase
+        const { error } = await supabase
+          .from("meals")
+          .update({
+            description: msg.text,
+            kcal: kcalMatch ? kcalMatch[1] : null,
+            protein: proteinMatch ? proteinMatch[1] : null,
+            carbohydrates: carbsMatch ? carbsMatch[1] : null,
+            fat: fatMatch ? fatMatch[1] : null,
+          })
+          .eq("id", editInfo.mealId);
+
+        if (error) {
+          console.error("Error updating meal:", error);
+          await bot.sendMessage(chatId, "Ocurrió un error al actualizar la comida. Por favor, intenta nuevamente.");
+        } else {
+          await bot.sendMessage(
+            chatId,
+            `✅ Comida actualizada correctamente!\n\n${response}`
+          );
+        }
+
+        // Clean up editing state
+        userMeals.delete(`editing_${userId}`);
+        userMeals.delete(`edit_${userId}`);
+      }
+      
+      // Delete the processing message
+      await bot.deleteMessage(chatId, processingMessage.message_id);
+      return;
+    }
+
     // Process food-related content
     const threadId = await getOrCreateThread(userId);
     let response;
