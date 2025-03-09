@@ -336,17 +336,16 @@ async function getTodaysMealsFromDB(userId) {
     const now = new Date();
     
     // Create today's date range in Argentina time (UTC-3)
-    // For querying Supabase, we need to convert from local Argentina time to UTC
     const todayStart = new Date(now);
     todayStart.setHours(0, 0, 0, 0);
-    // Add 3 hours to convert from Argentina time to UTC for Supabase query
-    const todayStartUTC = new Date(todayStart.getTime() + 3 * 60 * 60 * 1000);
-
+    
     const todayEnd = new Date(now);
     todayEnd.setHours(23, 59, 59, 999);
-    // Add 3 hours to convert from Argentina time to UTC for Supabase query
-    const todayEndUTC = new Date(todayEnd.getTime() + 3 * 60 * 60 * 1000);
-
+    
+    // Convert to UTC for Supabase query (add 3 hours)
+    const todayStartUTC = new Date(todayStart.getTime() - 3 * 60 * 60 * 1000);
+    const todayEndUTC = new Date(todayEnd.getTime() - 3 * 60 * 60 * 1000);
+    
     // Query Supabase for today's meals
     const { data, error } = await supabase
       .from("meals")
@@ -437,7 +436,7 @@ bot.on("message", async (msg) => {
       return;
     }
 
-    if (msg.text && msg.text.toLowerCase() === "resumen") {
+    if (msg.text && msg.text.toLowerCase() === "/resumen") {
       bot.sendMessage(chatId, "Obteniendo el resumen de tus comidas de hoy...");
       const dbSummary = await getTodaysMealsFromDB(userId);
       bot.sendMessage(chatId, dbSummary);
@@ -478,7 +477,7 @@ bot.on("message", async (msg) => {
       response = await processMessageWithAI(threadId, transcription);
     } else if (msg.text) {
       // Text message processing - skip commands
-      if (msg.text === "/start" || msg.text === "Terminar el día" || msg.text.toLowerCase() === "resumen") {
+      if (msg.text === "/start" || msg.text === "Terminar el día" || msg.text.toLowerCase() === "/resumen") {
         // Skip processing commands as food
         return;
       }
