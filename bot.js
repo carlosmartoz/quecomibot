@@ -31,7 +31,7 @@ const openai = new OpenAI({
 
 // Initialize MercadoPago
 const mp = new mercadopago.MercadoPagoConfig({
-  accessToken: process.env.MERCADO_PAGO_ACCESS_TOKEN,
+  accessToken: MERCADO_PAGO_ACCESS_TOKEN,
 });
 
 // Initialize Express app
@@ -485,20 +485,7 @@ bot.on("message", async (msg) => {
     }
 
     if (msg.text === "/premium") {
-      const walletBuilder = mp.bricks();
-      const renderComponent = async (walletBuilder) => {
-        const settings = {
-          initialization: {
-            preferenceId: "<PREFERENCE_ID>",
-          },
-        };
-        const walletController = await walletBuilder.create(
-          "wallet",
-          "cho_container",
-          settings
-        );
-      };
-      renderComponent(walletBuilder);
+      console.log(mp);
 
       return;
     }
