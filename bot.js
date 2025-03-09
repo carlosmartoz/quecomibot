@@ -492,7 +492,7 @@ bot.on("message", async (msg) => {
       try {
         // Crear el cuerpo de la solicitud de pago
         const body = {
-          transaction_amount: 10.0, // Monto a pagar
+          transaction_amount: 1000.0, // Monto a pagar
           description: "Suscripción Premium - QueComí",
           payment_method_id: "pix", // Cambiar según el método de pago (tarjeta, efectivo, etc.)
           payer: {
@@ -593,46 +593,52 @@ bot.on("message", async (msg) => {
       // Check if user is in editing mode
       if (userMeals.get(`editing_${userId}`)) {
         processingMessages.set(userId, true);
-        
+
         processingMessage = await bot.sendMessage(
           chatId,
           "🔄 Recalculando valores nutricionales..."
         );
-        
+
         // Process the edited text
         response = await processMessageWithAI(threadId, msg.text);
-        
+
         // Get the original message info
         const editInfo = userMeals.get(`edit_${userId}`);
-        
+
         if (editInfo) {
           // Update the original message with new values and confirmation buttons
-          await bot.editMessageText(response + "\n\n¿Los datos son correctos?", {
-            chat_id: chatId,
-            message_id: editInfo.messageId,
-            reply_markup: {
-              inline_keyboard: [
-                [
-                  { text: "✅ Confirmar", callback_data: `confirm_${Date.now()}` },
-                  { text: "✏️ Editar", callback_data: `edit_${Date.now()}` }
-                ]
-              ]
+          await bot.editMessageText(
+            response + "\n\n¿Los datos son correctos?",
+            {
+              chat_id: chatId,
+              message_id: editInfo.messageId,
+              reply_markup: {
+                inline_keyboard: [
+                  [
+                    {
+                      text: "✅ Confirmar",
+                      callback_data: `confirm_${Date.now()}`,
+                    },
+                    { text: "✏️ Editar", callback_data: `edit_${Date.now()}` },
+                  ],
+                ],
+              },
             }
-          });
-          
+          );
+
           // Update stored temporary response
           userMeals.set(`temp_${userId}`, response);
-          
+
           // Clean up editing state
           userMeals.delete(`editing_${userId}`);
           userMeals.delete(`edit_${userId}`);
-          
+
           // Delete the processing message
           await bot.deleteMessage(chatId, processingMessage.message_id);
           return;
         }
       }
-      
+
       shouldAnalyze = true;
       processingMessages.set(userId, true);
 
@@ -654,18 +660,25 @@ bot.on("message", async (msg) => {
 
       // Store the response temporarily
       userMeals.set(`temp_${userId}`, response);
-      
+
       // Send the response with confirmation buttons
-      await bot.sendMessage(chatId, response + "\n\n¿Los datos son correctos?", {
-        reply_markup: {
-          inline_keyboard: [
-            [
-              { text: "✅ Confirmar", callback_data: `confirm_${Date.now()}` },
-              { text: "✏️ Editar", callback_data: `edit_${Date.now()}` }
-            ]
-          ]
+      await bot.sendMessage(
+        chatId,
+        response + "\n\n¿Los datos son correctos?",
+        {
+          reply_markup: {
+            inline_keyboard: [
+              [
+                {
+                  text: "✅ Confirmar",
+                  callback_data: `confirm_${Date.now()}`,
+                },
+                { text: "✏️ Editar", callback_data: `edit_${Date.now()}` },
+              ],
+            ],
+          },
         }
-      });
+      );
 
       processingMessages.delete(userId);
     }
@@ -682,7 +695,7 @@ bot.on("message", async (msg) => {
 });
 
 // Handle callback queries from inline keyboard buttons
-bot.on('callback_query', async (callbackQuery) => {
+bot.on("callback_query", async (callbackQuery) => {
   try {
     const chatId = callbackQuery.message.chat.id;
     const userId = callbackQuery.from.id;
@@ -692,7 +705,7 @@ bot.on('callback_query', async (callbackQuery) => {
     // Acknowledge the callback query
     await bot.answerCallbackQuery(callbackQuery.id);
 
-    if (data.startsWith('confirm_')) {
+    if (data.startsWith("confirm_")) {
       // Get the stored response
       const response = userMeals.get(`temp_${userId}`);
       if (response) {
@@ -704,32 +717,36 @@ bot.on('callback_query', async (callbackQuery) => {
         await bot.editMessageText(response + "\n\n✅ Guardado correctamente!", {
           chat_id: chatId,
           message_id: messageId,
-          reply_markup: { inline_keyboard: [] }
+          reply_markup: { inline_keyboard: [] },
         });
       }
-    } 
-    else if (data.startsWith('edit_')) {
+    } else if (data.startsWith("edit_")) {
       // Get the stored response
       const response = userMeals.get(`temp_${userId}`);
       if (response) {
         // Ask for the correction
-        await bot.sendMessage(chatId, 
+        await bot.sendMessage(
+          chatId,
           "✏️ Por favor, escribe la corrección del plato.\n" +
-          "Por ejemplo: si dice 'milanesa con papas' y querés cambiarlo a 'milanesa con batatas', simplemente escribí el nuevo nombre.");
-        
+            "Por ejemplo: si dice 'milanesa con papas' y querés cambiarlo a 'milanesa con batatas', simplemente escribí el nuevo nombre."
+        );
+
         // Store the original message ID for later reference
         userMeals.set(`edit_${userId}`, {
           messageId: messageId,
-          originalResponse: response
+          originalResponse: response,
         });
-        
+
         // Set user state to editing
         userMeals.set(`editing_${userId}`, true);
       }
     }
   } catch (error) {
     console.error("Error handling callback query:", error);
-    bot.sendMessage(chatId, "Ocurrió un error al procesar tu solicitud. Por favor, intenta nuevamente.");
+    bot.sendMessage(
+      chatId,
+      "Ocurrió un error al procesar tu solicitud. Por favor, intenta nuevamente."
+    );
   }
 });
 
