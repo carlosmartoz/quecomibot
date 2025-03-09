@@ -303,13 +303,15 @@ async function decrementUserRequests(userId) {
 // Modificar la función updateUserSubscription
 async function updateUserSubscription(userId, isPremium) {
   try {
-    // Crear timestamp en UTC
-    const now = new Date().toISOString();
+    // Crear timestamp en UTC y restar 3 horas
+    const now = new Date();
+    now.setHours(now.getHours() - 3); // Restamos 3 horas
+    const timestampUTC = now.toISOString();
 
     const updateData = {
       subscription: "PRO",
       requests: "PRO",
-      start_date: now, // Se guardará como timestamptz en Supabase
+      start_date: timestampUTC,
     };
 
     // Actualizar en la tabla patients
@@ -324,7 +326,7 @@ async function updateUserSubscription(userId, isPremium) {
     }
 
     console.log(
-      `Successfully updated subscription for user ${userId} to PRO starting from ${now}`
+      `Successfully updated subscription for user ${userId} to PRO starting from ${timestampUTC}`
     );
     return true;
   } catch (error) {
