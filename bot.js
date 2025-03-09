@@ -237,12 +237,14 @@ bot.on("message", async (msg) => {
 
     let shouldAnalyze = false;
 
+    let processingMessage;
+
     if (msg.photo) {
       shouldAnalyze = true;
 
       processingMessages.set(userId, true);
 
-      bot.sendMessage(
+      processingMessage = await bot.sendMessage(
         chatId,
         "🔍 ¡Detective gastronómico en acción! Analizando tu deliciosa comida... 🧐✨"
       );
@@ -257,7 +259,7 @@ bot.on("message", async (msg) => {
 
       processingMessages.set(userId, true);
 
-      bot.sendMessage(
+      processingMessage = await bot.sendMessage(
         chatId,
         "🎙️ ¡Escuchando atentamente tus palabras! Transformando tu audio en texto... ✨"
       );
@@ -268,7 +270,9 @@ bot.on("message", async (msg) => {
 
       const transcription = await transcribeAudio(audioBuffer);
 
-      bot.sendMessage(
+      await bot.deleteMessage(chatId, processingMessage.message_id);
+
+      processingMessage = await bot.sendMessage(
         chatId,
         "🔍 ¡Detective gastronómico en acción! Analizando tu deliciosa comida... 🧐✨"
       );
@@ -279,7 +283,7 @@ bot.on("message", async (msg) => {
 
       processingMessages.set(userId, true);
 
-      bot.sendMessage(
+      processingMessage = await bot.sendMessage(
         chatId,
         "🔍 ¡Detective gastronómico en acción! Analizando tu deliciosa comida... 🧐✨"
       );
@@ -290,6 +294,7 @@ bot.on("message", async (msg) => {
     if (response && shouldAnalyze) {
       saveMealForUser(userId, response);
 
+      await bot.deleteMessage(chatId, processingMessage.message_id);
       bot.sendMessage(chatId, response);
 
       processingMessages.delete(userId);
