@@ -30,8 +30,8 @@ const openai = new OpenAI({
 });
 
 // Initialize MercadoPago
-mercadopago.configure({
-  access_token: MERCADO_PAGO_ACCESS_TOKEN,
+const mp = new mercadopago.MercadoPagoConfig({
+  accessToken: process.env.MERCADO_PAGO_ACCESS_TOKEN,
 });
 
 // Initialize Express app
@@ -485,47 +485,26 @@ bot.on("message", async (msg) => {
     }
 
     if (msg.text === "/premium") {
-      // Create preference with MercadoPago
-      const preference = {
+      const preference = new mercadopago.Preference(mp);
+
+      const response = await preference.create({
         items: [
           {
-            title: "Premium QueComí",
-            unit_price: 4700,
+            title: "Suscripción Premium",
+            unit_price: 5.0,
             quantity: 1,
-            currency_id: "ARS",
           },
         ],
         back_urls: {
-          success: `${WEBHOOK_URL}/success`,
-          failure: `${WEBHOOK_URL}/failure`,
-          pending: `${WEBHOOK_URL}/pending`,
+          success: "https://tu-bot.com/success",
+          failure: "https://tu-bot.com/failure",
+          pending: "https://tu-bot.com/pending",
         },
-        external_reference: userId.toString(),
-        notification_url: `${WEBHOOK_URL}/webhook`,
-      };
+        auto_return: "approved",
+      });
 
-      try {
-        const response = await mercadopago.preferences.create(preference);
-        const paymentLink = response.body.init_point;
-
-        bot.sendMessage(
-          chatId,
-          "🌟 ¡Actualiza a Premium! 🌟\n\n" +
-            "Beneficios:\n" +
-            "✨ Análisis detallado de nutrientes\n" +
-            "📊 Estadísticas semanales y mensuales\n" +
-            "🎯 Objetivos personalizados\n" +
-            "🔍 Recomendaciones personalizadas\n\n" +
-            `[Obtener Premium](${paymentLink})`,
-          { parse_mode: "Markdown" }
-        );
-      } catch (error) {
-        console.error("Error creating payment preference:", error);
-        bot.sendMessage(
-          chatId,
-          "Lo siento, hubo un error al procesar tu solicitud. Por favor, intenta más tarde."
-        );
-      }
+      console.log(response);
+      const paymentLink = response.init_point;
       return;
     }
 
