@@ -96,10 +96,10 @@ Para cada alimento, usa este formato exacto:
 🍽️ Plato: [nombre del alimento]
 
 📊 Estimación nutricional:
-• Calorías: [valor] kcal
-• Proteínas: [valor]g
-• Carbohidratos: [valor]g
-• Grasas: [valor]g`,
+🔥 Calorías: [valor] kcal
+🥩 Proteínas: [valor]g
+🥖 Carbohidratos: [valor]g
+🥓 Grasas: [valor]g`,
       },
       {
         type: "image_url",
@@ -131,10 +131,10 @@ Para cada alimento, usa este formato exacto:
 🍽️ Plato: [nombre del alimento]
 
 📊 Estimación nutricional:
-• Calorías: [valor] kcal
-• Proteínas: [valor]g
-• Carbohidratos: [valor]g
-• Grasas: [valor]g
+🔥 Calorías: [valor] kcal
+🥩 Proteínas: [valor]g
+🥖 Carbohidratos: [valor]g
+🥓 Grasas: [valor]g
 
 Alimentos a analizar: ${text}`,
   });

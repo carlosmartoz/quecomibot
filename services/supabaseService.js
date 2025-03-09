@@ -197,7 +197,7 @@ function formatMealSummary(meals) {
 
     summary += `🍽️ Plato: ${meal.description || "Sin descripción"}\n`;
 
-    summary += `📊 Nutrientes:\n`;
+    summary += `📊 Nutrientes:\n\n`;
 
     summary += `🔥 Calorías: ${meal.kcal || "0"} kcal\n`;
 
@@ -216,7 +216,7 @@ function formatMealSummary(meals) {
     totalFat += parseFloat(meal.fat || 0);
   });
 
-  summary += `📊 Total del día:\n`;
+  summary += `📊 Total del día:\n\n`;
 
   summary += `🔥 Calorías totales: ${totalKcal.toFixed(1)} kcal\n`;
 
