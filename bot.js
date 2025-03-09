@@ -299,9 +299,13 @@ bot.on("message", async (msg) => {
 
       bot.sendMessage(chatId, response);
 
-      await bot.deleteMessage(chatId, processingMessage.message_id);
+      if (processingSecondMessage) {
+        await bot.deleteMessage(chatId, processingMessage.message_id);
 
-      await bot.deleteMessage(chatId, processingSecondMessage.message_id);
+        await bot.deleteMessage(chatId, processingSecondMessage.message_id);
+      } else {
+        await bot.deleteMessage(chatId, processingMessage.message_id);
+      }
 
       processingMessages.delete(userId);
     }
