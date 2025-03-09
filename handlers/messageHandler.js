@@ -26,8 +26,14 @@ async function handleMessage(bot, msg) {
       return;
     }
 
-    if (msg.text && msg.text.toLowerCase() === "/start") {
-      return handleStartCommand(bot, chatId);
+    // Verificar si es un comando /start con parámetros
+    if (msg.text && msg.text.startsWith("/start")) {
+      const params = msg.text.split(" ");
+      if (params.length > 1 && params[1].toLowerCase() === "premium") {
+        // Si el parámetro es "premium", ejecutar el comando premium
+        return handlePremiumCommand(bot, chatId, userId);
+      }
+      return handleStartCommand(bot, chatId, userId);
     }
 
     if (msg.text && msg.text.toLowerCase() === "/premium") {
