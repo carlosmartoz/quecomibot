@@ -244,9 +244,9 @@ async function checkUserRequests(userId) {
 
     // Verificar si tiene solicitudes disponibles
     return { 
-      hasRequests: data.requests > 0, 
+      hasRequests: parseInt(data.requests) > 0, 
       isPremium: false,
-      remainingRequests: data.requests 
+      remainingRequests: parseInt(data.requests) 
     };
   } catch (error) {
     console.error("Error in checkUserRequests:", error);
@@ -275,10 +275,10 @@ async function decrementUserRequests(userId) {
     }
 
     // Si es FREE y tiene solicitudes, decrementamos
-    if (userData.requests > 0) {
+    if (parseInt(userData.requests) > 0) {
       const { error } = await supabase
         .from("patients")
-        .update({ requests: userData.requests - 1 })
+        .update({ requests: (parseInt(userData.requests) - 1).toString() })
         .eq("user_id", userId);
 
       if (error) {
@@ -354,14 +354,14 @@ async function getPatientByUserId(userId) {
 async function savePatientInfo(userId, patientInfo) {
   try {
     const existingPatient = await getPatientByUserId(userId);
-
+    
     if (existingPatient) {
       // Update existing patient
       const { data, error } = await supabase
         .from("patients")
         .update(patientInfo)
         .eq("user_id", userId);
-
+        
       if (error) throw error;
       return data;
     } else {
@@ -375,11 +375,11 @@ async function savePatientInfo(userId, patientInfo) {
         subscription: 'FREE', // Valor por defecto
         requests: "20" // Valor por defecto para nuevos usuarios
       };
-
+      
       const { data, error } = await supabase
         .from("patients")
         .insert([newPatient]);
-
+        
       if (error) throw error;
       return data;
     }

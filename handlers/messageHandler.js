@@ -187,7 +187,7 @@ async function handlePremiumCommand(bot, chatId, userId) {
 
     await bot.sendMessage(
       chatId,
-      "🌟 ¡Actualiza a Premium! ��\n\n" +
+      "🌟 ¡Actualiza a Premium! 🌟\n\n" +
         "Beneficios Premium:\n" +
         "✨ Análisis nutricional detallado\n" +
         "📊 Estadísticas avanzadas\n" +
@@ -224,11 +224,8 @@ async function handlePremiumCommand(bot, chatId, userId) {
 // Handle food-related content
 async function processFood(bot, msg, userId, chatId) {
   const threadId = await openaiService.getOrCreateThread(userId);
-
   let response;
-
   let processingMessage;
-
   let processingSecondMessage;
 
   // Verificar si el usuario tiene solicitudes disponibles
@@ -241,6 +238,9 @@ async function processFood(bot, msg, userId, chatId) {
       "🔒 Has alcanzado el límite de solicitudes gratuitas.\n\n" +
       "Para seguir utilizando el bot, actualiza a la versión Premium y disfruta de:\n" +
       "✨ Solicitudes ilimitadas\n" +
+      "📊 Análisis nutricional detallado\n" +
+      "🎯 Seguimiento de objetivos\n" +
+      "💪 Recomendaciones personalizadas\n\n" +
       "Usa el comando /premium para actualizar ahora."
     );
     return;
@@ -256,9 +256,7 @@ async function processFood(bot, msg, userId, chatId) {
       );
 
       const photo = msg.photo[msg.photo.length - 1];
-
       const fileLink = await bot.getFileLink(photo.file_id);
-
       response = await openaiService.processMessageWithAI(
         threadId,
         fileLink,
@@ -296,6 +294,9 @@ async function processFood(bot, msg, userId, chatId) {
       response = await openaiService.processMessageWithAI(threadId, msg.text);
     }
 
+    // Guardar la comida en la base de datos
+    await supabaseService.saveMealForUser(userId, response);
+
     // Decrementar el contador de solicitudes (solo si no es premium)
     if (!isPremium) {
       await supabaseService.decrementUserRequests(userId);
@@ -317,9 +318,6 @@ async function processFood(bot, msg, userId, chatId) {
         );
       }
     }
-
-    // Guardar la comida en la base de datos
-    await supabaseService.saveMealForUser(userId, response);
 
     // Enviar la respuesta al usuario
     if (processingMessage) {
