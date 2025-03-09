@@ -24,39 +24,6 @@ const MERCADO_PAGO_PUBLIC_KEY = process.env.MERCADO_PAGO_PUBLIC_KEY;
 // Initialize Supabase client
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY); // Used in saveMealForUser function
 
-// Configure Mercado Pago
-mercadopago.configure({
-  access_token: MERCADO_PAGO_ACCESS_TOKEN,
-});
-
-// Crear un enlace de pago
-async function createPaymentLink() {
-  const preference = {
-    items: [
-      {
-        title: "Suscripción Premium",
-        unit_price: 5.0, // Precio en dólares o moneda local
-        quantity: 1,
-      },
-    ],
-    back_urls: {
-      success: "https://tu-bot.com/success",
-      failure: "https://tu-bot.com/failure",
-      pending: "https://tu-bot.com/pending",
-    },
-    auto_return: "approved", // Redirige automáticamente después de aprobación
-    notification_url: "https://tu-bot.com/webhook", // URL para recibir notificaciones de pago
-  };
-
-  try {
-    const response = await mercadopago.preferences.create(preference);
-    return response.body.init_point; // URL de pago
-  } catch (error) {
-    console.error("Error al crear el enlace de pago:", error);
-    throw error;
-  }
-}
-
 // Initialize OpenAI client
 const openai = new OpenAI({
   apiKey: OPENAI_API_KEY,
@@ -513,24 +480,7 @@ bot.on("message", async (msg) => {
     }
 
     if (msg.text === "/premium") {
-      const chatId = msg.chat.id;
-
-      try {
-        const paymentLink = await createPaymentLink();
-
-        bot.sendMessage(
-          chatId,
-          `👉 ¡Compra tu suscripción Premium ahora! 🔥\n[Haz clic aquí para pagar](<${paymentLink}>)`,
-          {
-            parse_mode: "MarkdownV2", // Permitir enlaces
-          }
-        );
-      } catch (error) {
-        bot.sendMessage(
-          chatId,
-          "🚨 Error al generar el enlace de pago. Intenta de nuevo."
-        );
-      }
+      console.log("Prueba");
     }
 
     if (msg.text === "Terminar el día") {
