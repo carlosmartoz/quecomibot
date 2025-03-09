@@ -16,5 +16,9 @@ module.exports = {
   },
   server: {
     port: process.env.PORT || 3000,
-  }
+  },
+  mercadoPago: {
+    accessToken: process.env.MERCADO_PAGO_ACCESS_TOKEN,
+    publicKey: process.env.MERCADO_PAGO_PUBLIC_KEY,
+  },
 };

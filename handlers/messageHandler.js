@@ -7,11 +7,11 @@ const fileUtils = require("../utils/fileUtils");
 const processingMessages = new Map();
 
 // Handle incoming messages
-async function handleMessage(bot, msg) {
+async function handleMessage(bot, msg, createPaymentLink) {
   try {
     const chatId = msg.chat.id;
     const userId = msg.from.id;
-    
+
     // Check if already processing a message for this user
     if (processingMessages.has(userId)) {
       bot.sendMessage(
@@ -26,6 +26,33 @@ async function handleMessage(bot, msg) {
       return handleStartCommand(bot, chatId);
     }
 
+    if (msg.text === "/premium") {
+      const chatId = msg.chat.id;
+      const userId = msg.from.id;
+
+      const paymentLink = await createPaymentLink(userId);
+
+      const options = {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              {
+                text: "💵 Pagar con Mercado Pago",
+                url: paymentLink,
+              },
+            ],
+          ],
+        },
+      };
+
+      bot.sendMessage(
+        chatId,
+        "💳 Haz clic en el botón para completar el pago:",
+        options
+      );
+      return;
+    }
+
     if (msg.text === "Terminar el día") {
       const summary = supabaseService.getDailySummary(userId);
       bot.sendMessage(chatId, summary);
@@ -35,14 +62,14 @@ async function handleMessage(bot, msg) {
     if (msg.text && msg.text.toLowerCase() === "/resumen") {
       return handleSummaryCommand(bot, chatId, userId);
     }
-    
+
     // Process food-related content
     return processFood(bot, msg, userId, chatId);
   } catch (error) {
     console.error("Error in handleMessage:", error);
-    
+
     processingMessages.delete(msg.from.id);
-    
+
     bot.sendMessage(
       msg.chat.id,
       "¡Ups! 🙈 Parece que mi cerebro nutricional está haciendo una pequeña siesta digestiva 😴. \n\n ¿Podrías intentarlo de nuevo en un momento? ¡Prometo estar más despierto! 🌟"
@@ -91,7 +118,11 @@ async function processFood(bot, msg, userId, chatId) {
 
       const photo = msg.photo[msg.photo.length - 1];
       const fileLink = await bot.getFileLink(photo.file_id);
-      response = await openaiService.processMessageWithAI(threadId, fileLink, true);
+      response = await openaiService.processMessageWithAI(
+        threadId,
+        fileLink,
+        true
+      );
     } else if (msg.voice) {
       // Handle voice message
       processingMessage = await bot.sendMessage(
@@ -110,7 +141,10 @@ async function processFood(bot, msg, userId, chatId) {
 
       await bot.deleteMessage(chatId, processingMessage.message_id);
 
-      response = await openaiService.processMessageWithAI(threadId, transcription);
+      response = await openaiService.processMessageWithAI(
+        threadId,
+        transcription
+      );
     } else if (msg.text) {
       // Handle text message
       processingMessage = await bot.sendMessage(
@@ -125,7 +159,7 @@ async function processFood(bot, msg, userId, chatId) {
     if (response) {
       // Save the meal information to database
       await supabaseService.saveMealForUser(userId, response);
-      
+
       // Send the response to the user
       bot.sendMessage(chatId, response);
 
@@ -142,5 +176,5 @@ async function processFood(bot, msg, userId, chatId) {
 }
 
 module.exports = {
-  handleMessage
+  handleMessage,
 };
