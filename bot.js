@@ -92,25 +92,6 @@ async function processPayment(data) {
         console.log(
           `Payment function: Subscription and requests updated successfully for user ${userId}`
         );
-
-        try {
-          await bot.sendMessage(
-            userId,
-            "🎉 ¡Felicitaciones! Tu suscripción Premium ha sido activada.\n\n" +
-              "Beneficios activados:\n" +
-              `✨ Solicitudes ilimitadas\n\n` +
-              "¡Gracias por confiar en QueComí! 🙌"
-          );
-
-          console.log(
-            `Payment function: Confirmation message sent to user ${userId}`
-          );
-        } catch (messageError) {
-          console.error(
-            "Payment function: Error sending confirmation message:",
-            messageError
-          );
-        }
       } catch (updateError) {
         console.error(
           "Payment function: Error updating subscription:",
@@ -123,6 +104,14 @@ async function processPayment(data) {
   } catch (error) {
     console.error("Payment function: Error processing payment:", error);
   }
+
+  await bot.sendMessage(
+    userId,
+    "🎉 ¡Felicitaciones! Tu suscripción Premium ha sido activada.\n\n" +
+      "Beneficios activados:\n" +
+      `✨ Solicitudes ilimitadas\n\n` +
+      "¡Gracias por confiar en QueComí! 🙌"
+  );
 }
 
 // Listen on the port
