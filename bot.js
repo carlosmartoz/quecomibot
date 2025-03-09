@@ -5,8 +5,8 @@ const config = require("./config/config");
 const TelegramBot = require("node-telegram-bot-api");
 const messageHandler = require("./handlers/messageHandler");
 const supabaseService = require("./services/supabaseService");
-const mercadoPagoService = require("./services/mercadoPagoService");
 const schedulerService = require("./services/schedulerService");
+const mercadoPagoService = require("./services/mercadoPagoService");
 
 // Initialize Express app
 const app = express();

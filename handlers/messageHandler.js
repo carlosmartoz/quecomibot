@@ -255,10 +255,6 @@ async function processFood(bot, msg, userId, chatId) {
 
   let response;
 
-  let processingMessage;
-
-  let processingSecondMessage;
-
   const { hasRequests, isPremium, remainingRequests } =
     await supabaseService.checkUserRequests(userId);
 
@@ -278,7 +274,7 @@ async function processFood(bot, msg, userId, chatId) {
 
   try {
     if (msg.photo) {
-      processingMessage = await bot.sendMessage(
+      bot.sendMessage(
         chatId,
         "🔍 ¡Detective gastronómico en acción! Analizando tu deliciosa comida... 🧐✨"
       );
@@ -293,7 +289,7 @@ async function processFood(bot, msg, userId, chatId) {
         true
       );
     } else if (msg.voice) {
-      processingMessage = await bot.sendMessage(
+      bot.sendMessage(
         chatId,
         "🎙️ ¡Escuchando atentamente tus palabras! Transformando tu audio en texto... ✨"
       );
@@ -304,23 +300,17 @@ async function processFood(bot, msg, userId, chatId) {
 
       const transcription = await openaiService.transcribeAudio(audioBuffer);
 
-      processingSecondMessage = await bot.sendMessage(
+      bot.sendMessage(
         chatId,
         "🔍 ¡Detective gastronómico en acción! Analizando tu deliciosa comida... 🧐✨"
       );
-
-      try {
-        await bot.deleteMessage(chatId, processingMessage.message_id);
-      } catch (error) {
-        console.log("processFood: Error deleting processing message");
-      }
 
       response = await openaiService.processMessageWithAI(
         threadId,
         transcription
       );
     } else if (msg.text) {
-      processingMessage = await bot.sendMessage(
+      bot.sendMessage(
         chatId,
         "🔍 ¡Detective gastronómico en acción! Analizando tu deliciosa comida... 🧐✨"
       );
@@ -350,39 +340,9 @@ async function processFood(bot, msg, userId, chatId) {
       }
     }
 
-    if (processingMessage) {
-      try {
-        await bot.deleteMessage(chatId, processingMessage.message_id);
-      } catch (error) {
-        console.log("processFood: Error deleting processing message");
-      }
-    }
-
-    if (processingSecondMessage) {
-      try {
-        await bot.deleteMessage(chatId, processingSecondMessage.message_id);
-      } catch (error) {
-        console.log("processFood: Error deleting processing second message");
-      }
-    }
-
     await bot.sendMessage(chatId, response);
   } catch (error) {
     console.error("processFood: Error processing food:", error);
-
-    if (processingSecondMessage) {
-      try {
-        await bot.deleteMessage(chatId, processingSecondMessage.message_id);
-      } catch (error) {
-        console.log("processFood: Error deleting processing second message");
-      }
-    } else {
-      try {
-        await bot.deleteMessage(chatId, processingMessage.message_id);
-      } catch (error) {
-        console.log("processFood: Error deleting processing message");
-      }
-    }
 
     await bot.sendMessage(
       chatId,

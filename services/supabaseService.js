@@ -207,6 +207,8 @@ function formatMealSummary(meals) {
 
     summary += `🥓 Grasas: ${meal.fat || "0"}g\n\n`;
 
+    summary += `-------------------------------------------\n\n`;
+
     totalKcal += parseFloat(meal.kcal || 0);
 
     totalProtein += parseFloat(meal.protein || 0);

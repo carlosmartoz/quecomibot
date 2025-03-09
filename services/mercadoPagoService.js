@@ -59,17 +59,16 @@ async function handlePaymentWebhook(data) {
   );
 
   try {
+    let userId = null;
+
+    // Verificar si el pago ya fue procesado
     if (data.status === "approved" && data.external_reference) {
-      const userId = parseInt(data.external_reference);
+      userId = parseInt(data.external_reference);
 
       console.log(
         `handlePaymentWebhook: Payment approved from success callback for user ${userId}`
       );
-
-      return userId;
-    }
-
-    if (data.topic === "payment" && data.resource) {
+    } else if (data.topic === "payment" && data.resource) {
       const paymentId = data.resource.split("/").pop();
 
       console.log(`handlePaymentWebhook: Processing payment ID: ${paymentId}`);
@@ -83,23 +82,19 @@ async function handlePaymentWebhook(data) {
           paymentInfo.status === "approved" &&
           paymentInfo.external_reference
         ) {
-          const userId = parseInt(paymentInfo.external_reference);
+          userId = parseInt(paymentInfo.external_reference);
 
           console.log(
             `handlePaymentWebhook: Payment approved for user ${userId} from IPN`
           );
-
-          return userId;
         }
       } catch (paymentError) {
-        console.log(
+        console.error(
           "handlePaymentWebhook: Error fetching payment info:",
           paymentError.message
         );
       }
-    }
-
-    if (data.type === "payment" && data.data && data.data.id) {
+    } else if (data.type === "payment" && data.data && data.data.id) {
       try {
         const payment = new Payment(client);
 
@@ -109,17 +104,26 @@ async function handlePaymentWebhook(data) {
           paymentInfo.status === "approved" &&
           paymentInfo.external_reference
         ) {
-          const userId = parseInt(paymentInfo.external_reference);
+          userId = parseInt(paymentInfo.external_reference);
+
           console.log(
             `handlePaymentWebhook: Payment approved for user ${userId} from direct notification`
           );
-          return userId;
         }
       } catch (paymentError) {
-        console.log(
+        console.error(
           "handlePaymentWebhook: Error fetching payment from direct notification:",
           paymentError.message
         );
+      }
+    }
+
+    if (userId) {
+      const { isPremium } = await supabaseService.checkUserRequests(userId);
+
+      if (!isPremium) {
+        await supabaseService.updateUserSubscription(userId);
+        return userId;
       }
     }
 
@@ -140,10 +144,11 @@ async function handlePaymentWebhook(data) {
 // Process payment
 async function processPayment(bot, paymentId) {
   try {
-    const payment = await mercadopago.payment.get(paymentId);
+    const payment = new Payment(client);
+    const paymentInfo = await payment.get({ id: paymentId });
 
-    if (payment.status === "approved") {
-      const userId = payment.external_reference;
+    if (paymentInfo.status === "approved") {
+      const userId = paymentInfo.external_reference;
 
       const { isPremium } = await supabaseService.checkUserRequests(userId);
 
@@ -166,7 +171,7 @@ async function processPayment(bot, paymentId) {
 
 // Export the functions
 module.exports = {
+  processPayment,
   createPaymentLink,
   handlePaymentWebhook,
-  processPayment,
 };
