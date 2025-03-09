@@ -1,6 +1,6 @@
-// services/openaiService.js
-const OpenAI = require("openai");
+// Require dependencies
 const fs = require("fs");
+const OpenAI = require("openai");
 const config = require("../config/config");
 
 // Initialize OpenAI client
@@ -15,6 +15,7 @@ const userThreads = new Map();
 async function getOrCreateThread(userId) {
   if (!userThreads.has(userId)) {
     const thread = await openai.beta.threads.create();
+
     userThreads.set(userId, thread.id);
   }
   return userThreads.get(userId);
@@ -24,6 +25,7 @@ async function getOrCreateThread(userId) {
 async function transcribeAudio(audioBuffer) {
   try {
     const tempFilePath = `temp_${Date.now()}.ogg`;
+
     fs.writeFileSync(tempFilePath, audioBuffer);
 
     const transcription = await openai.audio.transcriptions.create({
@@ -32,9 +34,11 @@ async function transcribeAudio(audioBuffer) {
     });
 
     fs.unlinkSync(tempFilePath);
+
     return transcription.text;
   } catch (error) {
-    console.error("Error transcribing audio:", error);
+    console.error("transcribeAudio: Error transcribing audio:", error);
+
     throw error;
   }
 }
@@ -42,31 +46,35 @@ async function transcribeAudio(audioBuffer) {
 // Process message with OpenAI Assistant
 async function processMessageWithAI(threadId, content, isImage = false) {
   try {
-    // Create appropriate message based on content type
     if (isImage) {
       await createImageMessage(threadId, content);
     } else {
       await createTextMessage(threadId, content);
     }
 
-    // Run the assistant
     const run = await openai.beta.threads.runs.create(threadId, {
       assistant_id: config.openai.assistantId,
     });
 
-    // Wait for completion
     const runStatus = await waitForRunCompletion(threadId, run.id);
-    
+
     if (runStatus !== "completed") {
-      throw new Error(`Run ended with status: ${runStatus}`);
+      throw new Error(
+        `processMessageWithAI: Run ended with status: ${runStatus}`
+      );
     }
 
-    // Get the latest message
     const messages = await openai.beta.threads.messages.list(threadId);
+
     const lastMessage = messages.data[0];
+
     return lastMessage.content[0].text.value;
   } catch (error) {
-    console.error("Error processing message with AI:", error);
+    console.error(
+      "processMessageWithAI: Error processing message with AI:",
+      error
+    );
+
     return "¡Ups! 🙈 Parece que mi cerebro nutricional está haciendo una pequeña siesta digestiva 😴. \n\n ¿Podrías intentarlo de nuevo en un momento? ¡Prometo estar más despierto! 🌟";
   }
 }
@@ -135,6 +143,7 @@ Alimentos a analizar: ${text}`,
 // Wait for run completion
 async function waitForRunCompletion(threadId, runId) {
   let runStatus;
+
   do {
     const runStatusResponse = await openai.beta.threads.runs.retrieve(
       threadId,
@@ -155,6 +164,7 @@ async function waitForRunCompletion(threadId, runId) {
   return runStatus;
 }
 
+// Export the functions
 module.exports = {
   getOrCreateThread,
   transcribeAudio,
