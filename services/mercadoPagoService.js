@@ -13,7 +13,7 @@ async function createPaymentLink(userId) {
       items: [
         {
           title: "Suscripción Premium QueComí",
-          unit_price: 4700,
+          unit_price: 50,
           quantity: 1,
         },
       ],
