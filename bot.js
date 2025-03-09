@@ -582,10 +582,20 @@ bot.on("message", async (msg) => {
 
     // Handle the response
     if (response) {
-      // Save the meal information to database
-      await saveMealForUser(userId, response);
-      // Send the response to the user
-      bot.sendMessage(chatId, response);
+      // Send the response with confirmation buttons
+      bot.sendMessage(chatId, response + "\n\n¿Los datos son correctos?", {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: "✅ Confirmar", callback_data: `confirm_${Date.now()}` },
+              { text: "✏️ Editar", callback_data: `edit_${Date.now()}` }
+            ]
+          ]
+        }
+      });
+      
+      // Store the response temporarily
+      userMeals.set(`temp_${userId}`, response);
 
       if (processingSecondMessage) {
         await bot.deleteMessage(chatId, processingSecondMessage.message_id);
