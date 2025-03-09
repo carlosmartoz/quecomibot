@@ -544,9 +544,10 @@ bot.on("message", async (msg) => {
       return;
     }
 
-    // Add new command handler for /editar
+    // Add command handler for /editar
     if (msg.text === "/editar") {
       try {
+        const threadId = await getOrCreateThread(userId);
         // Get the last meal for this user
         const { data, error } = await supabase
           .from("meals")
@@ -592,7 +593,7 @@ bot.on("message", async (msg) => {
       }
     }
 
-    // Modify the existing editing handler
+    // Check if user is in editing mode
     if (userMeals.get(`editing_${userId}`)) {
       processingMessages.set(userId, true);
       
@@ -601,6 +602,7 @@ bot.on("message", async (msg) => {
         "🔄 Recalculando valores nutricionales..."
       );
       
+      const threadId = await getOrCreateThread(userId);
       // Process the edited text
       response = await processMessageWithAI(threadId, msg.text);
       
@@ -639,17 +641,15 @@ bot.on("message", async (msg) => {
         // Clean up editing state
         userMeals.delete(`editing_${userId}`);
         userMeals.delete(`edit_${userId}`);
+        
+        // Delete the processing message
+        await bot.deleteMessage(chatId, processingMessage.message_id);
+        processingMessages.delete(userId);
+        return;
       }
-      
-      // Delete the processing message
-      await bot.deleteMessage(chatId, processingMessage.message_id);
-      return;
     }
 
     // Process food-related content
-    const threadId = await getOrCreateThread(userId);
-    let response;
-
     let shouldAnalyze = false;
 
     let processingMessage;
@@ -692,55 +692,6 @@ bot.on("message", async (msg) => {
 
       response = await processMessageWithAI(threadId, transcription);
     } else if (msg.text) {
-      // Check if user is in editing mode
-      if (userMeals.get(`editing_${userId}`)) {
-        processingMessages.set(userId, true);
-
-        processingMessage = await bot.sendMessage(
-          chatId,
-          "🔄 Recalculando valores nutricionales..."
-        );
-
-        // Process the edited text
-        response = await processMessageWithAI(threadId, msg.text);
-
-        // Get the original message info
-        const editInfo = userMeals.get(`edit_${userId}`);
-
-        if (editInfo) {
-          // Update the original message with new values and confirmation buttons
-          await bot.editMessageText(
-            response + "\n\n¿Los datos son correctos?",
-            {
-              chat_id: chatId,
-              message_id: editInfo.messageId,
-              reply_markup: {
-                inline_keyboard: [
-                  [
-                    {
-                      text: "✅ Confirmar",
-                      callback_data: `confirm_${Date.now()}`,
-                    },
-                    { text: "✏️ Editar", callback_data: `edit_${Date.now()}` },
-                  ],
-                ],
-              },
-            }
-          );
-
-          // Update stored temporary response
-          userMeals.set(`temp_${userId}`, response);
-
-          // Clean up editing state
-          userMeals.delete(`editing_${userId}`);
-          userMeals.delete(`edit_${userId}`);
-
-          // Delete the processing message
-          await bot.deleteMessage(chatId, processingMessage.message_id);
-          return;
-        }
-      }
-
       shouldAnalyze = true;
       processingMessages.set(userId, true);
 
