@@ -145,12 +145,13 @@ function getArgentinaDateRange() {
   const todayStartUTC = new Date(todayStartArgentina.toISOString());
   const todayEndUTC = new Date(todayEndArgentina.toISOString());
   
-  // Log para depuración
-  console.log("Fecha actual en Argentina:", nowArgentina.toLocaleString("es-AR"));
+  // Log para depuración - Usar formato de 24 horas para mostrar correctamente
+  const timeOptions = { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' };
+  console.log("Fecha actual en Argentina:", nowArgentina.toLocaleString("es-AR", timeOptions));
   console.log("Rango de búsqueda (hora Argentina):", 
-    todayStartArgentina.toLocaleString("es-AR"), 
+    todayStartArgentina.toLocaleString("es-AR", timeOptions), 
     "a", 
-    todayEndArgentina.toLocaleString("es-AR"));
+    todayEndArgentina.toLocaleString("es-AR", timeOptions));
   console.log("Rango de búsqueda en UTC:", 
     todayStartUTC.toISOString(), 
     "a", 
