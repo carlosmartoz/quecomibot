@@ -613,9 +613,7 @@ bot.on("message", async (msg) => {
 
     // Process food-related content
     let shouldAnalyze = false;
-
     let processingMessage;
-
     let processingSecondMessage;
 
     if (msg.photo) {
@@ -664,39 +662,6 @@ bot.on("message", async (msg) => {
 
       response = await processMessageWithAI(threadId, msg.text);
     }
-
-    // Handle the response
-    if (response) {
-      if (processingSecondMessage) {
-        await bot.deleteMessage(chatId, processingSecondMessage.message_id);
-      } else {
-        await bot.deleteMessage(chatId, processingMessage.message_id);
-      }
-
-      // Store the response temporarily
-      userMeals.set(`temp_${userId}`, response);
-
-      // Send the response with confirmation buttons
-      await bot.sendMessage(
-        chatId,
-        response + "\n\n¿Los datos son correctos?",
-        {
-          reply_markup: {
-            inline_keyboard: [
-              [
-                {
-                  text: "✅ Confirmar",
-                  callback_data: `confirm_${Date.now()}`,
-                },
-                { text: "✏️ Editar", callback_data: `edit_${Date.now()}` },
-              ],
-            ],
-          },
-        }
-      );
-
-      processingMessages.delete(userId);
-    }
   } catch (error) {
     console.error("Error:", error);
 
@@ -705,62 +670,6 @@ bot.on("message", async (msg) => {
     bot.sendMessage(
       chatId,
       "¡Ups! 🙈 Parece que mi cerebro nutricional está haciendo una pequeña siesta digestiva 😴. \n\n ¿Podrías intentarlo de nuevo en un momento? ¡Prometo estar más despierto! 🌟"
-    );
-  }
-});
-
-// Handle callback queries from inline keyboard buttons
-bot.on("callback_query", async (callbackQuery) => {
-  try {
-    const chatId = callbackQuery.message.chat.id;
-    const userId = callbackQuery.from.id;
-    const data = callbackQuery.data;
-    const messageId = callbackQuery.message.message_id;
-
-    // Acknowledge the callback query
-    await bot.answerCallbackQuery(callbackQuery.id);
-
-    if (data.startsWith("confirm_")) {
-      // Get the stored response
-      const response = userMeals.get(`temp_${userId}`);
-      if (response) {
-        // Save to database
-        await saveMealForUser(userId, response);
-        // Delete temporary storage
-        userMeals.delete(`temp_${userId}`);
-        // Update message to remove buttons
-        await bot.editMessageText(response + "\n\n✅ Guardado correctamente!", {
-          chat_id: chatId,
-          message_id: messageId,
-          reply_markup: { inline_keyboard: [] },
-        });
-      }
-    } else if (data.startsWith("edit_")) {
-      // Get the stored response
-      const response = userMeals.get(`temp_${userId}`);
-      if (response) {
-        // Ask for the correction
-        await bot.sendMessage(
-          chatId,
-          "✏️ Por favor, escribe la corrección del plato.\n" +
-            "Por ejemplo: si dice 'milanesa con papas' y querés cambiarlo a 'milanesa con batatas', simplemente escribí el nuevo nombre."
-        );
-
-        // Store the original message ID for later reference
-        userMeals.set(`edit_${userId}`, {
-          messageId: messageId,
-          originalResponse: response,
-        });
-
-        // Set user state to editing
-        userMeals.set(`editing_${userId}`, true);
-      }
-    }
-  } catch (error) {
-    console.error("Error handling callback query:", error);
-    bot.sendMessage(
-      chatId,
-      "Ocurrió un error al procesar tu solicitud. Por favor, intenta nuevamente."
     );
   }
 });
