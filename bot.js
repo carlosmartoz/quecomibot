@@ -586,7 +586,7 @@ bot.on("message", async (msg) => {
     // Handle /resumen commands
     if (msg.text && msg.text.startsWith("/resumen")) {
       // Check if it's a specific period command
-      const match = msg.text.match(/^\/resumen(\d+)$/);
+      const match = msg.text.match(/^\/resumen-(\d+)$/);
       
       if (match) {
         // It's a period-specific command like /resumen-7
