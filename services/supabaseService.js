@@ -17,7 +17,7 @@ async function saveMealForUser(userId, mealInfo) {
     mealInfo.includes("Error") ||
     mealInfo.includes("siesta digestiva")
   ) {
-    console.log("Skipping saving error message as meal");
+    console.log("saveMealForUser: Skipping saving error message as meal");
 
     return;
   }
@@ -45,7 +45,9 @@ async function saveMealForUser(userId, mealInfo) {
       const mealData = mealParser.extractMealData(section);
 
       if (!mealData.description) {
-        console.log("Skipping saving meal with empty description");
+        console.log(
+          "saveMealForUser: Skipping saving meal with empty description"
+        );
 
         continue;
       }
@@ -63,25 +65,25 @@ async function saveMealForUser(userId, mealInfo) {
       ]);
 
       if (error) {
-        console.error("Error saving meal to database:", error);
+        console.error("saveMealForUser: Error saving meal to database:", error);
       } else {
-        console.log("Meal saved successfully:", data);
+        console.log("saveMealForUser: Meal saved successfully:", data);
       }
     }
   } catch (error) {
-    console.error("Error parsing or saving meal data:", error);
+    console.error("saveMealForUser: Error parsing or saving meal data:", error);
   }
 }
 
 // Get daily summary of meals for a user from memory
 function getDailySummary(userId) {
   if (!userMeals.has(userId) || userMeals.get(userId).length === 0) {
-    return "No has registrado comidas hoy.";
+    return "¡Vaya! 🤔 Parece que tu estómago está muy silencioso hoy, ¡aún no has registrado ninguna comida! 🍽️";
   }
 
   const meals = userMeals.get(userId);
 
-  let summary = "📋 Resumen del día:\n\n";
+  let summary = "🍽️ ¡Veamos qué deliciosas comidas tuviste hoy! 😋\n\n";
 
   meals.forEach((meal, index) => {
     summary += `🕐 Comida ${
@@ -108,20 +110,23 @@ async function getTodaysMealsFromDB(userId) {
       .order("created_at", { ascending: true });
 
     if (error) {
-      console.error("Error fetching meals from database:", error);
+      console.error(
+        "getTodaysMealsFromDB: Error fetching meals from database:",
+        error
+      );
 
-      return "Error al obtener el resumen de comidas. Por favor, intenta nuevamente.";
+      return "¡Ups! 😅 Tuve un pequeño tropiezo buscando tus comidas. ¿Me das otra oportunidad? 🙏";
     }
 
     if (!data || data.length === 0) {
-      return "No has registrado comidas hoy.";
+      return "¡Vaya! 🤔 Parece que tu estómago está muy silencioso hoy, ¡aún no has registrado ninguna comida! 🍽️";
     }
 
     return formatMealSummary(data);
   } catch (error) {
-    console.error("Error in getTodaysMealsFromDB:", error);
+    console.error("getTodaysMealsFromDB:", error);
 
-    return "Error al obtener el resumen de comidas. Por favor, intenta nuevamente.";
+    return "¡Ups! 😅 Tuve un pequeño tropiezo buscando tus comidas. ¿Me das otra oportunidad? 🙏";
   }
 }
 
@@ -148,16 +153,16 @@ function getArgentinaDateRange() {
   );
 
   console.log(
-    "Rango de búsqueda en UTC:",
+    "getArgentinaDateRange: UTC search range:",
     todayStartUTC.toISOString(),
     "a",
     todayEndUTC.toISOString()
   );
 
   console.log(
-    "Fechas en formato local:",
+    "getArgentinaDateRange: Local dates:",
     todayStartUTC.toLocaleString(),
-    "a",
+    "to",
     todayEndUTC.toLocaleString()
   );
 
@@ -166,7 +171,7 @@ function getArgentinaDateRange() {
 
 // Format meal summary from database data
 function formatMealSummary(meals) {
-  let summary = "📋 Resumen de hoy:\n\n";
+  let summary = "🍽️ ¡Veamos qué deliciosas comidas tuviste hoy! 😋\n\n";
 
   let totalKcal = 0;
 
@@ -194,13 +199,13 @@ function formatMealSummary(meals) {
 
     summary += `📊 Nutrientes:\n`;
 
-    summary += `  • Calorías: ${meal.kcal || "0"} kcal\n`;
+    summary += `🔥 Calorías: ${meal.kcal || "0"} kcal\n`;
 
-    summary += `  • Proteínas: ${meal.protein || "0"}g\n`;
+    summary += `🥩 Proteínas: ${meal.protein || "0"}g\n`;
 
-    summary += `  • Carbohidratos: ${meal.carbohydrates || "0"}g\n`;
+    summary += `🥖 Carbohidratos: ${meal.carbohydrates || "0"}g\n`;
 
-    summary += `  • Grasas: ${meal.fat || "0"}g\n\n`;
+    summary += `🥓 Grasas: ${meal.fat || "0"}g\n\n`;
 
     totalKcal += parseFloat(meal.kcal || 0);
 
@@ -213,18 +218,18 @@ function formatMealSummary(meals) {
 
   summary += `📊 Total del día:\n`;
 
-  summary += `  • Calorías totales: ${totalKcal.toFixed(1)} kcal\n`;
+  summary += `🔥 Calorías totales: ${totalKcal.toFixed(1)} kcal\n`;
 
-  summary += `  • Proteínas totales: ${totalProtein.toFixed(1)}g\n`;
+  summary += `🥩 Proteínas totales: ${totalProtein.toFixed(1)}g\n`;
 
-  summary += `  • Carbohidratos totales: ${totalCarbs.toFixed(1)}g\n`;
+  summary += `🥖 Carbohidratos totales: ${totalCarbs.toFixed(1)}g\n`;
 
-  summary += `  • Grasas totales: ${totalFat.toFixed(1)}g\n`;
+  summary += `🥓 Grasas totales: ${totalFat.toFixed(1)}g\n`;
 
   return summary;
 }
 
-// Verificar si un usuario tiene solicitudes disponibles
+// Check if a user has available requests
 async function checkUserRequests(userId) {
   try {
     const { data, error } = await supabase
@@ -234,31 +239,29 @@ async function checkUserRequests(userId) {
       .single();
 
     if (error) {
-      console.error("Error checking user requests:", error);
+      console.error("checkUserRequests: Error checking user requests:", error);
       return { hasRequests: false, isPremium: false };
     }
 
-    // Si el usuario es PRO o MEDICAL, siempre tiene solicitudes disponibles
     if (data.subscription === "PRO" || data.subscription === "MEDICAL") {
       return { hasRequests: true, isPremium: true };
     }
 
-    // Verificar si tiene solicitudes disponibles
     return {
       hasRequests: parseInt(data.requests) > 0,
       isPremium: false,
       remainingRequests: parseInt(data.requests),
     };
   } catch (error) {
-    console.error("Error in checkUserRequests:", error);
+    console.error("checkUserRequests: ", error);
+
     return { hasRequests: false, isPremium: false };
   }
 }
 
-// Decrementar el contador de solicitudes
+// Decrement the request counter
 async function decrementUserRequests(userId) {
   try {
-    // Primero verificamos el tipo de suscripción del usuario
     const { data: userData, error: userError } = await supabase
       .from("patients")
       .select("subscription, requests")
@@ -266,11 +269,14 @@ async function decrementUserRequests(userId) {
       .single();
 
     if (userError) {
-      console.error("Error checking user subscription status:", userError);
+      console.error(
+        "decrementUserRequests: Error checking user subscription status:",
+        userError
+      );
+
       return false;
     }
 
-    // Si es PRO o MEDICAL, no decrementamos
     if (
       userData.subscription === "PRO" ||
       userData.subscription === "MEDICAL"
@@ -278,7 +284,6 @@ async function decrementUserRequests(userId) {
       return true;
     }
 
-    // Si es FREE y tiene solicitudes, decrementamos
     if (parseInt(userData.requests) > 0) {
       const { error } = await supabase
         .from("patients")
@@ -286,7 +291,11 @@ async function decrementUserRequests(userId) {
         .eq("user_id", userId);
 
       if (error) {
-        console.error("Error decrementing user requests:", error);
+        console.error(
+          "decrementUserRequests: Error decrementing user requests:",
+          error
+        );
+
         return false;
       }
 
@@ -295,17 +304,22 @@ async function decrementUserRequests(userId) {
 
     return false;
   } catch (error) {
-    console.error("Error in decrementUserRequests:", error);
+    console.error(
+      "decrementUserRequests: Error in decrementUserRequests:",
+      error
+    );
+
     return false;
   }
 }
 
-// Modificar la función updateUserSubscription
-async function updateUserSubscription(userId, isPremium) {
+// Update user subscription
+async function updateUserSubscription(userId) {
   try {
-    // Crear timestamp en UTC y restar 3 horas
     const now = new Date();
-    now.setHours(now.getHours() - 3); // Restamos 3 horas
+
+    now.setHours(now.getHours() - 3);
+
     const timestampUTC = now.toISOString();
 
     const updateData = {
@@ -314,42 +328,48 @@ async function updateUserSubscription(userId, isPremium) {
       start_date: timestampUTC,
     };
 
-    // Actualizar en la tabla patients
     const { error: patientError } = await supabase
       .from("patients")
       .update(updateData)
       .eq("user_id", userId);
 
     if (patientError) {
-      console.error("Error updating patient subscription:", patientError);
+      console.error(
+        "updateUserSubscription: Error updating patient subscription:",
+        patientError
+      );
+
       throw patientError;
     }
 
     console.log(
-      `Successfully updated subscription for user ${userId} to PRO starting from ${timestampUTC}`
+      `updateUserSubscription: Successfully updated subscription for user ${userId} to PRO starting from ${timestampUTC}`
     );
+
     return true;
   } catch (error) {
-    console.error("Error updating user subscription:", error);
+    console.error(
+      "updateUserSubscription: Error updating user subscription:",
+      error
+    );
+
     throw error;
   }
 }
 
-// Función para verificar suscripciones
+// Function to check subscriptions
 async function checkSubscriptions() {
   try {
-    // Todas las fechas en UTC
     const now = new Date();
 
-    // Calcular fechas límite en UTC
     const notificationDate = new Date(
       now.getTime() - 27 * 24 * 60 * 60 * 1000
     ).toISOString();
+
     const expirationDate = new Date(
       now.getTime() - 30 * 24 * 60 * 60 * 1000
     ).toISOString();
 
-    // Consulta para usuarios que necesitan notificación (usando timestamptz)
     const { data: usersToNotify, error: notifyError } = await supabase
       .from("patients")
       .select("user_id, start_date")
@@ -358,11 +378,14 @@ async function checkSubscriptions() {
       .gt("start_date", expirationDate);
 
     if (notifyError) {
-      console.error("Error fetching users to notify:", notifyError);
+      console.error(
+        "checkSubscriptions: Error fetching users to notify:",
+        notifyError
+      );
+
       throw notifyError;
     }
 
-    // Consulta para usuarios vencidos (usando timestamptz)
     const { data: expiredUsers, error: expiredError } = await supabase
       .from("patients")
       .select("user_id, start_date")
@@ -370,24 +393,29 @@ async function checkSubscriptions() {
       .lt("start_date", expirationDate);
 
     if (expiredError) {
-      console.error("Error fetching expired users:", expiredError);
+      console.error(
+        "checkSubscriptions: Error fetching expired users:",
+        expiredError
+      );
+
       throw expiredError;
     }
 
     return { usersToNotify, expiredUsers };
   } catch (error) {
-    console.error("Error checking subscriptions:", error);
+    console.error("checkSubscriptions:Error checking subscriptions:", error);
+
     throw error;
   }
 }
 
-// Función para revertir a suscripción FREE
+// Function to revert to FREE subscription
 async function revertToFreeSubscription(userId) {
   try {
     const updateData = {
       subscription: "FREE",
       requests: "20",
-      start_date: null, // Limpiamos el timestamptz
+      start_date: null,
     };
 
     const { error } = await supabase
@@ -398,11 +426,16 @@ async function revertToFreeSubscription(userId) {
     if (error) throw error;
 
     console.log(
-      `Successfully reverted subscription to FREE for user ${userId}`
+      `revertToFreeSubscription: Successfully reverted subscription to FREE for user ${userId}`
     );
+
     return true;
   } catch (error) {
-    console.error("Error reverting subscription:", error);
+    console.error(
+      "revertToFreeSubscription: Error reverting subscription:",
+      error
+    );
+
     throw error;
   }
 }
@@ -430,7 +463,7 @@ async function getPatientByUserId(userId) {
   }
 }
 
-// Modificar la función savePatientInfo para incluir el campo requests
+// Function to save patient info
 async function savePatientInfo(userId, patientInfo) {
   try {
     const existingPatient = await getPatientByUserId(userId);
@@ -451,8 +484,8 @@ async function savePatientInfo(userId, patientInfo) {
         age: patientInfo.age || null,
         height: patientInfo.height || null,
         weight: patientInfo.weight || null,
-        subscription: "FREE", // Valor por defecto
-        requests: "20", // Valor por defecto para nuevos usuarios
+        subscription: "FREE",
+        requests: "20",
       };
 
       const { data, error } = await supabase
@@ -464,22 +497,22 @@ async function savePatientInfo(userId, patientInfo) {
       return data;
     }
   } catch (error) {
-    console.error("Error saving patient info:", error);
+    console.error("savePatientInfo: Error saving patient info:", error);
 
     throw error;
   }
 }
 
 module.exports = {
+  supabase,
   saveMealForUser,
   getDailySummary,
-  getTodaysMealsFromDB,
-  updateUserSubscription,
-  getPatientByUserId,
   savePatientInfo,
   checkUserRequests,
-  decrementUserRequests,
-  supabase,
+  getPatientByUserId,
   checkSubscriptions,
+  getTodaysMealsFromDB,
+  updateUserSubscription,
+  decrementUserRequests,
   revertToFreeSubscription,
 };
