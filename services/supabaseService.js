@@ -303,35 +303,28 @@ async function decrementUserRequests(userId) {
 // Modificar la función updateUserSubscription
 async function updateUserSubscription(userId, isPremium) {
   try {
-    // Convertir el booleano a tipo de suscripción
-    const subscriptionType = isPremium ? "PRO" : "FREE";
-
-    // Actualizar en la tabla users (si existe)
-    try {
-      await supabase
-        .from("patients")
-        .update({ subscription: subscriptionType })
-        .eq("user_id", userId);
-    } catch (userError) {
-      console.error(
-        "Error updating user subscription in users table:",
-        userError
-      );
-      // Continuamos aunque falle, ya que la tabla principal es patients
-    }
+    const updateData = {
+      subscription: "PRO",
+      requests: "PRO", // Indicador de requests ilimitados para usuarios PRO
+    };
 
     // Actualizar en la tabla patients
     const { error: patientError } = await supabase
       .from("patients")
-      .update({ subscription: subscriptionType })
+      .update(updateData)
       .eq("user_id", userId);
 
-    if (patientError) throw patientError;
+    if (patientError) {
+      console.error("Error updating patient subscription:", patientError);
+      throw patientError;
+    }
 
+    console.log(
+      `Successfully updated subscription for user ${userId} to PRO with unlimited requests`
+    );
     return true;
   } catch (error) {
     console.error("Error updating user subscription:", error);
-
     throw error;
   }
 }

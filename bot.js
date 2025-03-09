@@ -51,18 +51,8 @@ app.get("/payment/success", async (req, res) => {
   // Procesar el pago
   await processPayment(req.query);
 
-  // Mostrar página de éxito
-  res.send(`
-        <html>
-            <body style="display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background-color: #f0f2f5;">
-                <div style="text-align: center; padding: 20px; background: white; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                    <h1>¡Pago Exitoso! 🎉</h1>
-                    <p>Tu suscripción Premium ha sido activada.</p>
-                    <p>Puedes volver a Telegram para continuar usando QueComí.</p>
-                </div>
-            </body>
-        </html>
-    `);
+  // Redirigir al bot de Telegram
+  res.redirect("https://t.me/quecomipreviewbot");
 });
 
 // Failure endpoint
@@ -89,9 +79,11 @@ async function processPayment(data) {
       console.log(`Processing successful payment for user ${userId}`);
 
       try {
-        // Actualizar suscripción
+        // Actualizar suscripción y requests a PRO/unlimited
         await supabaseService.updateUserSubscription(userId, true);
-        console.log(`Subscription updated successfully for user ${userId}`);
+        console.log(
+          `Subscription and requests updated successfully for user ${userId}`
+        );
 
         // Enviar mensaje de confirmación
         try {
@@ -102,7 +94,8 @@ async function processPayment(data) {
               "✨ Análisis nutricional detallado\n" +
               "📊 Estadísticas avanzadas\n" +
               "🎯 Seguimiento de objetivos\n" +
-              "💪 Recomendaciones personalizadas\n\n" +
+              "💪 Recomendaciones personalizadas\n" +
+              "♾️ Solicitudes ilimitadas\n\n" + // Agregado el beneficio de solicitudes ilimitadas
               "¡Gracias por confiar en QueComí! 🙌"
           );
           console.log(`Confirmation message sent to user ${userId}`);
