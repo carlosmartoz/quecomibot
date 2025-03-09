@@ -7,18 +7,55 @@ const TelegramBot = require("node-telegram-bot-api");
 const OpenAI = require("openai");
 const fs = require("fs");
 const https = require("https");
+const mercadopago = require("mercadopago");
 const { createClient } = require("@supabase/supabase-js");
 
 // Get environment variables
+const PORT = process.env.PORT || 3000;
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
 const WEBHOOK_URL = process.env.WEBHOOK_URL;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const ASSISTANT_ID = process.env.ASSISTANT_ID;
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
+const MERCADO_PAGO_ACCESS_TOKEN = process.env.MERCADO_PAGO_ACCESS_TOKEN;
+const MERCADO_PAGO_PUBLIC_KEY = process.env.MERCADO_PAGO_PUBLIC_KEY;
 
 // Initialize Supabase client
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY); // Used in saveMealForUser function
+
+// Configure Mercado Pago
+mercadopago.configure({
+  access_token: MERCADO_PAGO_ACCESS_TOKEN,
+});
+
+// Crear un enlace de pago
+async function createPaymentLink() {
+  const preference = {
+    items: [
+      {
+        title: "Suscripción Premium",
+        unit_price: 5.0, // Precio en dólares o moneda local
+        quantity: 1,
+      },
+    ],
+    back_urls: {
+      success: "https://tu-bot.com/success",
+      failure: "https://tu-bot.com/failure",
+      pending: "https://tu-bot.com/pending",
+    },
+    auto_return: "approved", // Redirige automáticamente después de aprobación
+    notification_url: "https://tu-bot.com/webhook", // URL para recibir notificaciones de pago
+  };
+
+  try {
+    const response = await mercadopago.preferences.create(preference);
+    return response.body.init_point; // URL de pago
+  } catch (error) {
+    console.error("Error al crear el enlace de pago:", error);
+    throw error;
+  }
+}
 
 // Initialize OpenAI client
 const openai = new OpenAI({
@@ -40,21 +77,17 @@ app.use(express.json());
 // Webhook endpoint
 app.post(`/bot${TELEGRAM_TOKEN}`, (req, res) => {
   try {
-    // Process the update
     bot.processUpdate(req.body);
-    
-    // Log the incoming update for debugging
+
     console.log("Received update:", JSON.stringify(req.body, null, 2));
-    
+
     res.sendStatus(200);
   } catch (error) {
     console.error("Error processing webhook update:", error);
+
     res.sendStatus(500);
   }
 });
-
-// Get the port from the environment variables or use 3000 as default
-const PORT = process.env.PORT || 3000;
 
 // Listen on the port
 app.listen(PORT, () => {
@@ -212,8 +245,12 @@ Alimentos a analizar: ${content}`,
 
 // Save meal information for a user
 async function saveMealForUser(userId, mealInfo) {
-  // Check if this is an error message - don't save errors as meals
-  if (mealInfo.includes("¡Ups!") || mealInfo.includes("Oops!") || mealInfo.includes("Error") || mealInfo.includes("siesta digestiva")) {
+  if (
+    mealInfo.includes("¡Ups!") ||
+    mealInfo.includes("Oops!") ||
+    mealInfo.includes("Error") ||
+    mealInfo.includes("siesta digestiva")
+  ) {
     console.log("Skipping saving error message as meal");
     return;
   }
@@ -228,14 +265,17 @@ async function saveMealForUser(userId, mealInfo) {
     timestamp: new Date(),
     info: mealInfo,
   });
-  
+
   try {
     // Check if the response contains multiple food items
     // Split the response by food item sections
     const foodSections = [];
-    
+
     // First, try to split by multiple "🍽️ Plato:" sections
-    if (mealInfo.includes("🍽️ Plato:") && mealInfo.split("🍽️ Plato:").length > 2) {
+    if (
+      mealInfo.includes("🍽️ Plato:") &&
+      mealInfo.split("🍽️ Plato:").length > 2
+    ) {
       // Multiple "Plato" sections found
       const sections = mealInfo.split("🍽️ Plato:");
       // Skip the first empty element
@@ -244,57 +284,59 @@ async function saveMealForUser(userId, mealInfo) {
           foodSections.push("🍽️ Plato:" + sections[i]);
         }
       }
-    } 
+    }
     // If no multiple sections found, check if there are numbered items
     else if (mealInfo.match(/\d+\.\s+/)) {
       // Split by numbered items (1., 2., etc.)
-      const lines = mealInfo.split('\n');
+      const lines = mealInfo.split("\n");
       let currentSection = "";
       let inSection = false;
-      
+
       for (const line of lines) {
         // If line starts with a number followed by a dot, it's a new section
         if (line.match(/^\d+\.\s+/)) {
           if (inSection && currentSection.trim()) {
             foodSections.push(currentSection.trim());
           }
-          currentSection = line + '\n';
+          currentSection = line + "\n";
           inSection = true;
         } else if (inSection) {
-          currentSection += line + '\n';
+          currentSection += line + "\n";
         }
       }
-      
+
       // Add the last section
       if (inSection && currentSection.trim()) {
         foodSections.push(currentSection.trim());
       }
-    } 
+    }
     // If no structured format is found, treat the whole response as one item
     else {
       foodSections.push(mealInfo);
     }
-    
+
     // Process each food section
     for (const section of foodSections) {
       // Extract description (the dish name)
       let description = "";
-      
+
       // Try to match with the "🍽️ Plato:" prefix first
       const descriptionMatch = section.match(/🍽️ Plato: (.*?)(\n|$)/);
       if (descriptionMatch) {
         description = descriptionMatch[1].trim();
       } else {
         // If no match, try to get the first line of the section as the dish name
-        const firstLineMatch = section.split('\n')[0];
+        const firstLineMatch = section.split("\n")[0];
         if (firstLineMatch) {
           // Remove any emoji, numbers, or prefix if present
-          description = firstLineMatch.replace(/^[^a-zA-ZáéíóúÁÉÍÓÚñÑ]*/, '').trim();
+          description = firstLineMatch
+            .replace(/^[^a-zA-ZáéíóúÁÉÍÓÚñÑ]*/, "")
+            .trim();
           // Remove any trailing punctuation
-          description = description.replace(/[.:,;]$/, '').trim();
+          description = description.replace(/[.:,;]$/, "").trim();
         }
       }
-      
+
       // Don't save if we couldn't extract a proper description
       if (!description) {
         console.log("Skipping saving meal with empty description");
@@ -313,19 +355,17 @@ async function saveMealForUser(userId, mealInfo) {
       const fat = fatMatch ? fatMatch[1] : "";
 
       // Save to Supabase
-      const { data, error } = await supabase
-        .from('meals')
-        .insert([
-          { 
-            user_id: userId,
-            description: description,
-            created_at: new Date().toISOString(), // Supabase will store this in UTC
-            kcal: kcal,
-            protein: protein,
-            fat: fat,
-            carbohydrates: carbohydrates
-          }
-        ]);
+      const { data, error } = await supabase.from("meals").insert([
+        {
+          user_id: userId,
+          description: description,
+          created_at: new Date().toISOString(), // Supabase will store this in UTC
+          kcal: kcal,
+          protein: protein,
+          fat: fat,
+          carbohydrates: carbohydrates,
+        },
+      ]);
 
       if (error) {
         console.error("Error saving meal to database:", error);
@@ -364,18 +404,18 @@ async function getTodaysMealsFromDB(userId) {
   try {
     // Get current date in Argentina timezone (UTC-3)
     const now = new Date();
-    
+
     // Create today's date range in Argentina time (UTC-3)
     const todayStart = new Date(now);
     todayStart.setHours(0, 0, 0, 0);
-    
+
     const todayEnd = new Date(now);
     todayEnd.setHours(23, 59, 59, 999);
-    
+
     // Convert to UTC for Supabase query (add 3 hours)
     const todayStartUTC = new Date(todayStart.getTime() - 3 * 60 * 60 * 1000);
     const todayEndUTC = new Date(todayEnd.getTime() - 3 * 60 * 60 * 1000);
-    
+
     // Query Supabase for today's meals
     const { data, error } = await supabase
       .from("meals")
@@ -389,41 +429,45 @@ async function getTodaysMealsFromDB(userId) {
       console.error("Error fetching meals from database:", error);
       return "Error al obtener el resumen de comidas. Por favor, intenta nuevamente.";
     }
-    
+
     if (!data || data.length === 0) {
       return "No has registrado comidas hoy.";
     }
-    
+
     let summary = "📋 Resumen de hoy:\n\n";
-    
+
     // Track total nutritional values
     let totalKcal = 0;
     let totalProtein = 0;
     let totalCarbs = 0;
     let totalFat = 0;
-    
+
     data.forEach((meal, index) => {
       // Convert UTC time from Supabase back to Argentina time for display
       const mealTimeUTC = new Date(meal.created_at);
-      const mealTimeArgentina = new Date(mealTimeUTC.getTime() - 3 * 60 * 60 * 1000);
-      
+      const mealTimeArgentina = new Date(
+        mealTimeUTC.getTime() - 3 * 60 * 60 * 1000
+      );
+
       // Use 24-hour format for time display
-      const timeOptions = { hour: '2-digit', minute: '2-digit', hour12: false };
-      summary += `🕐 Comida ${index + 1} (${mealTimeArgentina.toLocaleTimeString('es-AR', timeOptions)}):\n`;
-      summary += `🍽️ Plato: ${meal.description || 'Sin descripción'}\n`;
+      const timeOptions = { hour: "2-digit", minute: "2-digit", hour12: false };
+      summary += `🕐 Comida ${
+        index + 1
+      } (${mealTimeArgentina.toLocaleTimeString("es-AR", timeOptions)}):\n`;
+      summary += `🍽️ Plato: ${meal.description || "Sin descripción"}\n`;
       summary += `📊 Nutrientes:\n`;
-      summary += `  • Calorías: ${meal.kcal || '0'} kcal\n`;
-      summary += `  • Proteínas: ${meal.protein || '0'}g\n`;
-      summary += `  • Carbohidratos: ${meal.carbohydrates || '0'}g\n`;
-      summary += `  • Grasas: ${meal.fat || '0'}g\n\n`;
-      
+      summary += `  • Calorías: ${meal.kcal || "0"} kcal\n`;
+      summary += `  • Proteínas: ${meal.protein || "0"}g\n`;
+      summary += `  • Carbohidratos: ${meal.carbohydrates || "0"}g\n`;
+      summary += `  • Grasas: ${meal.fat || "0"}g\n\n`;
+
       // Add to totals (convert to numbers and handle empty values)
       totalKcal += parseFloat(meal.kcal || 0);
       totalProtein += parseFloat(meal.protein || 0);
       totalCarbs += parseFloat(meal.carbohydrates || 0);
       totalFat += parseFloat(meal.fat || 0);
     });
-    
+
     // Add total summary section
     summary += `📊 Total del día:\n`;
     summary += `  • Calorías totales: ${totalKcal.toFixed(1)} kcal\n`;
@@ -443,7 +487,7 @@ bot.on("message", async (msg) => {
   try {
     const chatId = msg.chat.id;
     const userId = msg.from.id;
-    
+
     if (processingMessages.has(userId)) {
       bot.sendMessage(
         chatId,
@@ -468,6 +512,27 @@ bot.on("message", async (msg) => {
       return;
     }
 
+    if (msg.text === "/premium") {
+      const chatId = msg.chat.id;
+
+      try {
+        const paymentLink = await createPaymentLink();
+
+        bot.sendMessage(
+          chatId,
+          `👉 ¡Compra tu suscripción Premium ahora! 🔥\n[Haz clic aquí para pagar](<${paymentLink}>)`,
+          {
+            parse_mode: "MarkdownV2", // Permitir enlaces
+          }
+        );
+      } catch (error) {
+        bot.sendMessage(
+          chatId,
+          "🚨 Error al generar el enlace de pago. Intenta de nuevo."
+        );
+      }
+    }
+
     if (msg.text === "Terminar el día") {
       const summary = getDailySummary(userId);
       bot.sendMessage(chatId, summary);
@@ -480,7 +545,7 @@ bot.on("message", async (msg) => {
       bot.sendMessage(chatId, dbSummary);
       return;
     }
-    
+
     // Process food-related content
     const threadId = await getOrCreateThread(userId);
     let response;
@@ -567,4 +632,4 @@ bot.on("message", async (msg) => {
 });
 
 // Log bot startup
-console.log("🤖 QueComí 'add-supabase' Started...");
+console.log("🤖 QueComí Started...");
