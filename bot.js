@@ -210,6 +210,7 @@ bot.on("message", async (msg) => {
         chatId,
         "🤔 ¡Ups! Mi cerebro está procesando tu mensaje anterior. ¡Dame un momentito para ponerme al día! 🏃‍♂️💨"
       );
+
       return;
     }
 
@@ -263,6 +264,8 @@ bot.on("message", async (msg) => {
         chatId,
         "🎙️ ¡Escuchando atentamente tus palabras! Transformando tu audio en texto... ✨"
       );
+
+      await bot.deleteMessage(chatId, processingMessage.message_id);
 
       const fileLink = await bot.getFileLink(msg.voice.file_id);
 
