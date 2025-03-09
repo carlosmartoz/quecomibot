@@ -300,8 +300,6 @@ bot.on("message", async (msg) => {
       bot.sendMessage(chatId, response);
 
       if (processingSecondMessage) {
-        await bot.deleteMessage(chatId, processingMessage.message_id);
-
         await bot.deleteMessage(chatId, processingSecondMessage.message_id);
       } else {
         await bot.deleteMessage(chatId, processingMessage.message_id);
