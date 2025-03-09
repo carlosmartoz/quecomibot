@@ -2,6 +2,7 @@
 require("dotenv").config();
 
 // Required dependencies
+const express = require("express");
 const TelegramBot = require("node-telegram-bot-api");
 const OpenAI = require("openai");
 const fs = require("fs");
@@ -24,17 +25,37 @@ const openai = new OpenAI({
   apiKey: OPENAI_API_KEY,
 });
 
-// IMPORTANT: Use ONLY ONE of these methods (polling OR webhook), not both!
-// For development, polling is easier to use
-const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: true });
+// Initialize Express app
+const app = express();
 
-// If you want to use webhook instead, comment out the polling above and uncomment this:
-// const bot = new TelegramBot(TELEGRAM_TOKEN);
-// bot.setWebHook(`${WEBHOOK_URL}/bot${TELEGRAM_TOKEN}`);
+// Initialize Telegram bot with webhook
+const bot = new TelegramBot(TELEGRAM_TOKEN, { webHook: true });
+
+// Configure the webhook
+bot.setWebHook(`${WEBHOOK_URL}/bot${TELEGRAM_TOKEN}`);
+
+// Middleware to parse JSON bodies
+app.use(express.json());
+
+// Webhook endpoint
+app.post(`/bot${TELEGRAM_TOKEN}`, (req, res) => {
+  bot.processUpdate(req.body);
+
+  res.sendStatus(200);
+});
+
+// Get the port from the environment variables or use 3000 as default
+const PORT = process.env.PORT || 3000;
+
+// Listen on the port
+app.listen(PORT, () => {
+  console.log(`✅ Webhook active on ${WEBHOOK_URL}/bot${TELEGRAM_TOKEN}`);
+});
 
 // Store user conversations and meals
 const userThreads = new Map();
 const userMeals = new Map();
+const processingMessages = new Map();
 
 // Get existing thread for user or create new one
 async function getOrCreateThread(userId) {
@@ -411,10 +432,14 @@ async function getTodaysMealsFromDB(userId) {
 // Handle incoming messages
 bot.on("message", async (msg) => {
   try {
-    const chatId = msg.chat.id;
-    const userId = msg.from.id;
-    
-    // Handle commands first
+    if (processingMessages.has(userId)) {
+      bot.sendMessage(
+        chatId,
+        "🤔 ¡Ups! Mi cerebro está procesando tu mensaje anterior. ¡Dame un momentito para ponerme al día! 🏃‍♂️💨"
+      );
+      return;
+    }
+
     if (msg.text === "/start") {
       bot.sendMessage(
         chatId,
@@ -447,10 +472,16 @@ bot.on("message", async (msg) => {
     const threadId = await getOrCreateThread(userId);
     let response;
 
-    // Handle different types of food-related content
+    let shouldAnalyze = false;
+
+    let processingMessage;
+
     if (msg.photo) {
-      // Photo processing
-      bot.sendMessage(
+      shouldAnalyze = true;
+
+      processingMessages.set(userId, true);
+
+      processingMessage = await bot.sendMessage(
         chatId,
         "🔍 ¡Detective gastronómico en acción! Analizando tu deliciosa comida... 🧐✨"
       );
@@ -459,8 +490,11 @@ bot.on("message", async (msg) => {
       const fileLink = await bot.getFileLink(photo.file_id);
       response = await processMessageWithAI(threadId, fileLink, true);
     } else if (msg.voice) {
-      // Voice message processing
-      bot.sendMessage(
+      shouldAnalyze = true;
+
+      processingMessages.set(userId, true);
+
+      processingMessage = await bot.sendMessage(
         chatId,
         "🎙️ ¡Escuchando atentamente tus palabras! Transformando tu audio en texto... ✨"
       );
@@ -468,21 +502,21 @@ bot.on("message", async (msg) => {
       const fileLink = await bot.getFileLink(msg.voice.file_id);
       const audioBuffer = await downloadFile(fileLink);
       const transcription = await transcribeAudio(audioBuffer);
-      
-      bot.sendMessage(
+
+      processingMessage = await bot.sendMessage(
         chatId,
         "🔍 ¡Detective gastronómico en acción! Analizando tu deliciosa comida... 🧐✨"
       );
 
+      await bot.deleteMessage(chatId, processingMessage.message_id);
+
       response = await processMessageWithAI(threadId, transcription);
     } else if (msg.text) {
-      // Text message processing - skip commands
-      if (msg.text === "/start" || msg.text === "Terminar el día" || msg.text.toLowerCase() === "/resumen") {
-        // Skip processing commands as food
-        return;
-      }
-      
-      bot.sendMessage(
+      shouldAnalyze = true;
+
+      processingMessages.set(userId, true);
+
+      processingMessage = await bot.sendMessage(
         chatId,
         "🔍 ¡Detective gastronómico en acción! Analizando tu deliciosa comida... 🧐✨"
       );
@@ -496,9 +530,15 @@ bot.on("message", async (msg) => {
       await saveMealForUser(userId, response);
       // Send the response to the user
       bot.sendMessage(chatId, response);
+
+      await bot.deleteMessage(chatId, processingMessage.message_id);
+
+      processingMessages.delete(userId);
     }
   } catch (error) {
     console.error("Error:", error);
+
+    processingMessages.delete(userId);
 
     bot.sendMessage(
       chatId,

@@ -2,10 +2,11 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
     "dotenv": "^16.4.7",
+    "express": "^4.21.2",
     "node-telegram-bot-api": "^0.66.0",
     "openai": "^4.86.2"
   },
   "devDependencies": {
-    "@types/node": "^20.13.10"
+    "@types/node": "^22.13.10"
   }
 }
