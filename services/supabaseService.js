@@ -130,8 +130,8 @@ function getArgentinaDateRange() {
   todayEnd.setHours(23, 59, 59, 999);
   
   // Convert to UTC for Supabase query (add 3 hours)
-  const todayStartUTC = new Date(todayStart.getTime() - 3 * 60 * 60 * 1000);
-  const todayEndUTC = new Date(todayEnd.getTime() - 3 * 60 * 60 * 1000);
+  const todayStartUTC = new Date(todayStart.getTime() + 3 * 60 * 60 * 1000);
+  const todayEndUTC = new Date(todayEnd.getTime() + 3 * 60 * 60 * 1000);
   
   return { todayStartUTC, todayEndUTC };
 }
