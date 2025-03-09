@@ -18,6 +18,10 @@ async function handleMessage(bot, msg) {
 
     const userId = msg.from.id;
 
+    if (msg.sticker || msg.video || msg.video_note) {
+      return;
+    }
+
     if (processingMessages.has(userId)) {
       bot.sendMessage(
         chatId,
@@ -305,7 +309,11 @@ async function processFood(bot, msg, userId, chatId) {
         "🔍 ¡Detective gastronómico en acción! Analizando tu deliciosa comida... 🧐✨"
       );
 
-      await bot.deleteMessage(chatId, processingMessage.message_id);
+      try {
+        await bot.deleteMessage(chatId, processingMessage.message_id);
+      } catch (error) {
+        console.log("processFood: Error deleting processing message");
+      }
 
       response = await openaiService.processMessageWithAI(
         threadId,
@@ -343,23 +351,37 @@ async function processFood(bot, msg, userId, chatId) {
     }
 
     if (processingMessage) {
-      await bot.deleteMessage(chatId, processingMessage.message_id);
+      try {
+        await bot.deleteMessage(chatId, processingMessage.message_id);
+      } catch (error) {
+        console.log("processFood: Error deleting processing message");
+      }
     }
 
     if (processingSecondMessage) {
-      await bot.deleteMessage(chatId, processingSecondMessage.message_id);
+      try {
+        await bot.deleteMessage(chatId, processingSecondMessage.message_id);
+      } catch (error) {
+        console.log("processFood: Error deleting processing second message");
+      }
     }
 
     await bot.sendMessage(chatId, response);
   } catch (error) {
     console.error("processFood: Error processing food:", error);
 
-    if (processingMessage) {
-      await bot.deleteMessage(chatId, processingMessage.message_id);
-    }
-
     if (processingSecondMessage) {
-      await bot.deleteMessage(chatId, processingSecondMessage.message_id);
+      try {
+        await bot.deleteMessage(chatId, processingSecondMessage.message_id);
+      } catch (error) {
+        console.log("processFood: Error deleting processing second message");
+      }
+    } else {
+      try {
+        await bot.deleteMessage(chatId, processingMessage.message_id);
+      } catch (error) {
+        console.log("processFood: Error deleting processing message");
+      }
     }
 
     await bot.sendMessage(

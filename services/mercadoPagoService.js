@@ -1,5 +1,6 @@
 // Require dependencies
 const config = require("../config/config");
+const supabaseService = require("../services/supabaseService");
 const { MercadoPagoConfig, Preference, Payment } = require("mercadopago");
 
 // Initialize MercadoPago client
@@ -136,8 +137,36 @@ async function handlePaymentWebhook(data) {
   }
 }
 
+// Process payment
+async function processPayment(bot, paymentId) {
+  try {
+    const payment = await mercadopago.payment.get(paymentId);
+
+    if (payment.status === "approved") {
+      const userId = payment.external_reference;
+
+      const { isPremium } = await supabaseService.checkUserRequests(userId);
+
+      if (!isPremium) {
+        await supabaseService.updateUserSubscription(userId);
+
+        await bot.sendMessage(
+          userId,
+          "🎉 ¡Felicitaciones! Ya eres usuario Premium\n\n" +
+            "Ahora puedes disfrutar de:\n" +
+            "✨ Solicitudes ilimitadas\n\n" +
+            "¡Gracias por confiar en mí! 🙏"
+        );
+      }
+    }
+  } catch (error) {
+    console.error("processPayment: Error processing payment:", error);
+  }
+}
+
 // Export the functions
 module.exports = {
   createPaymentLink,
   handlePaymentWebhook,
+  processPayment,
 };
