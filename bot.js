@@ -44,33 +44,36 @@ app.post("/payment/webhook", async (req, res) => {
 
     if (userId) {
       console.log(`Updating subscription for user ${userId}`);
-      await supabaseService.updateUserSubscription(userId, true);
-
-      // Enviar mensaje de confirmación
       try {
-        await bot.sendMessage(
-          userId,
-          "🎉 ¡Felicitaciones! Tu suscripción Premium ha sido activada.\n\n" +
-            "Beneficios activados:\n" +
-            "✨ Análisis nutricional detallado\n" +
-            "📊 Estadísticas avanzadas\n" +
-            "🎯 Seguimiento de objetivos\n" +
-            "💪 Recomendaciones personalizadas\n\n" +
-            "¡Gracias por confiar en QueComí! 🙌"
-        );
-        console.log(`Confirmation message sent to user ${userId}`);
-      } catch (messageError) {
-        console.error("Error sending confirmation message:", messageError);
+        await supabaseService.updateUserSubscription(userId, true);
+        console.log(`Subscription updated successfully for user ${userId}`);
+
+        // Enviar mensaje de confirmación
+        try {
+          await bot.sendMessage(
+            userId,
+            "🎉 ¡Felicitaciones! Tu suscripción Premium ha sido activada.\n\n" +
+              "Beneficios activados:\n" +
+              "✨ Análisis nutricional detallado\n" +
+              "📊 Estadísticas avanzadas\n" +
+              "🎯 Seguimiento de objetivos\n" +
+              "💪 Recomendaciones personalizadas\n\n" +
+              "¡Gracias por confiar en QueComí! 🙌"
+          );
+          console.log(`Confirmation message sent to user ${userId}`);
+        } catch (messageError) {
+          console.error("Error sending confirmation message:", messageError);
+        }
+      } catch (updateError) {
+        console.error("Error updating subscription:", updateError);
       }
     }
-
-    // Siempre responder 200 al webhook de MercadoPago
-    res.sendStatus(200);
   } catch (error) {
     console.error("Error processing payment webhook:", error);
-    // Aún así respondemos 200 para que MercadoPago no reintente
-    res.sendStatus(200);
   }
+
+  // Siempre responder 200 al webhook de MercadoPago
+  res.sendStatus(200);
 });
 
 // Success endpoint

@@ -49,25 +49,60 @@ async function handlePaymentWebhook(data) {
   console.log("Received webhook data:", JSON.stringify(data, null, 2));
 
   try {
-    if (data.type === "payment") {
-      const payment = new Payment(client);
-      const paymentInfo = await payment.get({ id: data.data.id });
-      console.log("Payment info:", JSON.stringify(paymentInfo, null, 2));
+    // Manejar notificación IPN (Instant Payment Notification)
+    if (data.topic === "payment") {
+      const paymentId = data.resource.split("/").pop();
+      console.log(`Processing payment ID: ${paymentId}`);
 
-      if (paymentInfo.status === "approved") {
-        const userId = parseInt(paymentInfo.external_reference);
-        console.log(`Payment approved for user ${userId}`);
-        return userId;
-      } else {
-        console.log(`Payment not approved. Status: ${paymentInfo.status}`);
+      const payment = new Payment(client);
+      try {
+        const paymentInfo = await payment.get({ id: paymentId });
+        console.log("Payment info:", JSON.stringify(paymentInfo, null, 2));
+
+        if (paymentInfo.status === "approved") {
+          const userId = parseInt(paymentInfo.external_reference);
+          console.log(`Payment approved for user ${userId}`);
+          return userId;
+        } else {
+          console.log(`Payment not approved. Status: ${paymentInfo.status}`);
+        }
+      } catch (paymentError) {
+        console.log("Error fetching payment, will try alternative method");
       }
-    } else {
-      console.log(`Webhook type not handled: ${data.type}`);
     }
+
+    // Manejar notificación directa de pago
+    if (data.type === "payment" && data.data && data.data.id) {
+      const payment = new Payment(client);
+      try {
+        const paymentInfo = await payment.get({ id: data.data.id });
+        console.log(
+          "Payment info from direct notification:",
+          JSON.stringify(paymentInfo, null, 2)
+        );
+
+        if (paymentInfo.status === "approved") {
+          const userId = parseInt(paymentInfo.external_reference);
+          console.log(`Payment approved for user ${userId}`);
+          return userId;
+        }
+      } catch (paymentError) {
+        console.log("Error fetching payment from direct notification");
+      }
+    }
+
+    // Manejar callback de éxito
+    if (data.status === "approved" && data.external_reference) {
+      const userId = parseInt(data.external_reference);
+      console.log(`Payment approved from success callback for user ${userId}`);
+      return userId;
+    }
+
+    console.log("No payment confirmation found in webhook data");
     return null;
   } catch (error) {
     console.error("Error processing payment webhook:", error);
-    throw error;
+    return null; // Cambiado de throw a return null para evitar errores en el webhook
   }
 }
 
