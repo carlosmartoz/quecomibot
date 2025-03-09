@@ -485,26 +485,52 @@ bot.on("message", async (msg) => {
     }
 
     if (msg.text === "/premium") {
-      const preference = new mercadopago.Preference(mp);
+      const bricksBuilder = mp.bricks();
 
-      const response = await preference.create({
-        items: [
-          {
-            title: "Suscripción Premium",
-            unit_price: 5.0,
-            quantity: 1,
+      const renderPaymentBrick = async (bricksBuilder) => {
+        const settings = {
+          initialization: {
+            amount: 4700,
           },
-        ],
-        back_urls: {
-          success: "https://tu-bot.com/success",
-          failure: "https://tu-bot.com/failure",
-          pending: "https://tu-bot.com/pending",
-        },
-        auto_return: "approved",
-      });
+          customization: {
+            visual: {
+              style: {
+                theme: "dark",
+              },
+            },
+            paymentMethods: {
+              creditCard: "all",
+              debitCard: "all",
+              ticket: "all",
+              bankTransfer: "all",
+              atm: "all",
+              onboarding_credits: "all",
+              wallet_purchase: "all",
+              maxInstallments: 1,
+            },
+          },
+          callbacks: {
+            onReady: () => {
+              /*
+             Callback llamado cuando el Brick está listo.
+             Aquí puede ocultar cargamentos de su sitio, por ejemplo.
+            */
+            },
+            onError: (error) => {
+              // callback llamado para todos los casos de error de Brick
+              console.error(error);
+            },
+          },
+        };
+        window.paymentBrickController = await bricksBuilder.create(
+          "payment",
+          "paymentBrick_container",
+          settings
+        );
+      };
 
-      console.log(response);
-      const paymentLink = response.init_point;
+      renderPaymentBrick(bricksBuilder);
+
       return;
     }
 
