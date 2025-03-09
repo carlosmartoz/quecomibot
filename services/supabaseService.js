@@ -49,7 +49,7 @@ async function saveMealForUser(userId, mealInfo) {
         .insert([{ 
           user_id: userId,
           description: mealData.description,
-          created_at: new Date().toISOString(),
+          created_at: nowArgentina.toISOString(),
           kcal: mealData.kcal,
           protein: mealData.protein,
           fat: mealData.fat,
@@ -119,19 +119,24 @@ async function getTodaysMealsFromDB(userId) {
 
 // Helper function to get Argentina date range
 function getArgentinaDateRange() {
-  // Get current date in Argentina timezone (UTC-3)
-  const now = new Date();
+  // Get current date in UTC
+  const nowUTC = new Date();
   
-  // Create today's date range in Argentina time (UTC-3)
-  const todayStart = new Date(now);
-  todayStart.setHours(0, 0, 0, 0);
+  // Convert to Argentina time (UTC-3)
+  const nowArgentina = new Date(nowUTC.getTime() - 3 * 60 * 60 * 1000);
   
-  const todayEnd = new Date(now);
-  todayEnd.setHours(23, 59, 59, 999);
+  // Create today's date range in Argentina time
+  const todayStartArgentina = new Date(nowArgentina);
+  todayStartArgentina.setHours(0, 0, 0, 0);
   
-  // Convert to UTC for Supabase query (add 3 hours)
-  const todayStartUTC = new Date(todayStart.getTime() + 3 * 60 * 60 * 1000);
-  const todayEndUTC = new Date(todayEnd.getTime() + 3 * 60 * 60 * 1000);
+  const todayEndArgentina = new Date(nowArgentina);
+  todayEndArgentina.setHours(23, 59, 59, 999);
+  
+  // Convert back to UTC for Supabase query
+  const todayStartUTC = new Date(todayStartArgentina.getTime() + 3 * 60 * 60 * 1000);
+  const todayEndUTC = new Date(todayEndArgentina.getTime() + 3 * 60 * 60 * 1000);
+  
+  console.log("Rango de búsqueda en UTC:", todayStartUTC.toISOString(), "a", todayEndUTC.toISOString());
   
   return { todayStartUTC, todayEndUTC };
 }
