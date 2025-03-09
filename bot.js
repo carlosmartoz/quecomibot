@@ -17,8 +17,6 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const ASSISTANT_ID = process.env.ASSISTANT_ID;
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
-const MERCADO_PAGO_ACCESS_TOKEN = process.env.MERCADO_PAGO_ACCESS_TOKEN;
-const MERCADO_PAGO_PUBLIC_KEY = process.env.MERCADO_PAGO_PUBLIC_KEY;
 
 // Initialize Supabase client
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY); // Used in saveMealForUser function
@@ -27,16 +25,6 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY); // Used in saveM
 const openai = new OpenAI({
   apiKey: OPENAI_API_KEY,
 });
-
-const { MercadoPagoConfig, Payment } = require("mercadopago");
-
-// Configurar Mercado Pago
-const mpClient = new MercadoPagoConfig({
-  accessToken: MERCADO_PAGO_ACCESS_TOKEN,
-  options: { timeout: 5000 },
-});
-
-const payment = new Payment(mpClient);
 
 // Initialize Express app
 const app = express();
@@ -489,45 +477,6 @@ bot.on("message", async (msg) => {
     }
 
     if (msg.text === "/premium") {
-      try {
-        // Crear el cuerpo de la solicitud de pago
-        const body = {
-          transaction_amount: 1000.0, // Monto a pagar
-          description: "Suscripción Premium - QueComí",
-          payment_method_id: "card", // Cambiar según el método de pago (tarjeta, efectivo, etc.)
-          payer: {
-            email: "test_user@example.com", // Usa un email real o uno de prueba de MercadoPago
-          },
-        };
-
-        // Opciones de la solicitud (opcional)
-        const requestOptions = {
-          idempotencyKey: `payment-${Date.now()}`, // Evitar pagos duplicados
-        };
-
-        // Crear el pago
-        const response = await payment.create({ body, requestOptions });
-
-        console.log("Pago creado:", response);
-
-        // Extraer el enlace de pago (sandbox/init_point para modo prueba)
-        const paymentLink =
-          response.point_of_interaction.transaction_data.ticket_url;
-
-        // Enviar el enlace al usuario
-        bot.sendMessage(
-          chatId,
-          `💳 ¡Haz clic en el siguiente enlace para realizar el pago! 👇\n\n[➡️ Pagar ahora](${paymentLink})`,
-          { parse_mode: "Markdown" }
-        );
-      } catch (error) {
-        console.error("Error creando el pago:", error);
-        bot.sendMessage(
-          chatId,
-          "❌ Hubo un error al generar el enlace de pago. Inténtalo nuevamente más tarde."
-        );
-      }
-
       return;
     }
 
@@ -607,7 +556,7 @@ bot.on("message", async (msg) => {
         chatId,
         "🔄 Recalculando valores nutricionales..."
       );
-      
+
       const threadId = await getOrCreateThread(userId);
       // Process the edited text
       response = await processMessageWithAI(threadId, msg.text);
@@ -650,7 +599,7 @@ bot.on("message", async (msg) => {
         // Clean up editing state
         userMeals.delete(`editing_${userId}`);
         userMeals.delete(`edit_${userId}`);
-        
+
         // Delete the processing message
         await bot.deleteMessage(chatId, processingMessage.message_id);
         processingMessages.delete(userId);
