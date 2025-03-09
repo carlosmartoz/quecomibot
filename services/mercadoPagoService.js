@@ -8,38 +8,38 @@ const client = new MercadoPagoConfig({
 });
 
 // Create payment link
-async function createSubscriptionLink(userId) {
-  console.log(`Creating subscription for user ${userId}`);
+async function createPaymentLink(userId) {
+  console.log(`Creating payment link for user ${userId}`);
   try {
-    const subscription = {
-      preapproval_plan_id: "premium", // Necesitarás crear un plan primero
-      reason: "Suscripción Premium QueComí",
-      external_reference: userId.toString(),
-      auto_recurring: {
-        frequency: 1,
-        frequency_type: "months",
-        transaction_amount: 50,
-        currency_id: "ARS",
+    const preference = new Preference(client);
+    const preferenceData = {
+      items: [
+        {
+          title: "Suscripción Premium - QueComí (Prueba)",
+          unit_price: 50,
+          quantity: 1,
+        },
+      ],
+      back_urls: {
+        success: `${config.telegram.webhookUrl}/payment/success`,
+        failure: `${config.telegram.webhookUrl}/payment/failure`,
       },
-      back_url: `${config.telegram.webhookUrl}/payment/success`,
+      external_reference: userId.toString(),
       notification_url: `${config.telegram.webhookUrl}/payment/webhook`,
+      auto_return: "approved",
     };
 
-    const response = await fetch("https://api.mercadopago.com/preapproval", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${config.mercadoPago.accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(subscription),
-    });
+    console.log(
+      "Creating preference with data:",
+      JSON.stringify(preferenceData, null, 2)
+    );
+    const response = await preference.create({ body: preferenceData });
+    console.log("Payment link created successfully:", response.init_point);
 
-    const data = await response.json();
-    console.log("Subscription created successfully:", data);
-
-    return data.init_point;
+    return response.init_point;
   } catch (error) {
-    console.error("Error creating subscription:", error);
+    console.error("Error creating payment link:", error);
+
     throw error;
   }
 }
@@ -112,6 +112,6 @@ async function handlePaymentWebhook(data) {
 }
 
 module.exports = {
-  createSubscriptionLink,
+  createPaymentLink,
   handlePaymentWebhook,
 };
