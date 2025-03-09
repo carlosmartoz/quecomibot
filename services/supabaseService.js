@@ -223,9 +223,71 @@ async function updateUserSubscription(userId, isPremium) {
   }
 }
 
+// Add this function to check if a patient exists
+async function getPatientByUserId(userId) {
+  try {
+    const { data, error } = await supabase
+      .from("patients")
+      .select("*")
+      .eq("user_id", userId)
+      .single();
+
+    if (error && error.code !== 'PGRST116') {
+      console.error("Error checking patient:", error);
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Error in getPatientByUserId:", error);
+    return null;
+  }
+}
+
+// Add this function to create or update patient information
+async function savePatientInfo(userId, patientInfo) {
+  try {
+    const existingPatient = await getPatientByUserId(userId);
+    
+    if (existingPatient) {
+      // Update existing patient
+      const { data, error } = await supabase
+        .from("patients")
+        .update(patientInfo)
+        .eq("user_id", userId);
+        
+      if (error) throw error;
+      return data;
+    } else {
+      // Create new patient with default values
+      const newPatient = {
+        user_id: userId,
+        name: patientInfo.name || null,
+        age: patientInfo.age || null,
+        height: patientInfo.height || null,
+        weight: patientInfo.weight || null,
+        requests: 20, // Default value
+        subscription: 'FREE' // Default value
+      };
+      
+      const { data, error } = await supabase
+        .from("patients")
+        .insert([newPatient]);
+        
+      if (error) throw error;
+      return data;
+    }
+  } catch (error) {
+    console.error("Error saving patient info:", error);
+    throw error;
+  }
+}
+
 module.exports = {
   saveMealForUser,
   getDailySummary,
   getTodaysMealsFromDB,
   updateUserSubscription,
+  getPatientByUserId,
+  savePatientInfo,
 };
