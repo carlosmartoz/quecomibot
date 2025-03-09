@@ -33,6 +33,10 @@ async function saveMealForUser(userId, mealInfo) {
     // Parse meal sections from the response
     const foodSections = mealParser.parseMealSections(mealInfo);
     
+    // Get current time in Argentina timezone
+    const nowUTC = new Date();
+    const nowArgentina = new Date(nowUTC.getTime() - 3 * 60 * 60 * 1000);
+    
     // Process each food section
     for (const section of foodSections) {
       const mealData = mealParser.extractMealData(section);
