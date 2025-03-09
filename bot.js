@@ -491,14 +491,14 @@ bot.on("message", async (msg) => {
         items: [
           {
             title: "Suscripción Premium",
-            unit_price: 5.0,
+            unit_price: 4700,
             quantity: 1,
           },
         ],
         back_urls: {
-          success: "https://tu-bot.com/success",
-          failure: "https://tu-bot.com/failure",
-          pending: "https://tu-bot.com/pending",
+          success: "https://quecomibotpreview.onrender.com/success",
+          failure: "https://quecomibotpreview.onrender.com/failure",
+          pending: "https://quecomibotpreview.onrender.com/pending",
         },
         auto_return: "approved",
       });
