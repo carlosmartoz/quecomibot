@@ -132,27 +132,29 @@ function getArgentinaDateRange() {
 
   // Convert to Argentina time (UTC-3)
   const nowArgentina = new Date(nowUTC.getTime() - 3 * 60 * 60 * 1000);
-
+  
   // Create today's date range in Argentina time
   const todayStartArgentina = new Date(nowArgentina);
   todayStartArgentina.setHours(0, 0, 0, 0);
-
+  
   const todayEndArgentina = new Date(nowArgentina);
   todayEndArgentina.setHours(23, 59, 59, 999);
-
-  // Convert back to UTC for Supabase query
-  const todayStartUTC = new Date(todayStartArgentina.getTime() + 3 * 60 * 60 * 1000);
-  const todayEndUTC = new Date(todayEndArgentina.getTime() + 3 * 60 * 60 * 1000);
   
-  // Formato más claro para el log
+  // Para la consulta a Supabase, necesitamos las fechas en UTC
+  // Como guardamos las fechas en formato Argentina, no necesitamos convertir de vuelta
+  const todayStartUTC = new Date(todayStartArgentina.toISOString());
+  const todayEndUTC = new Date(todayEndArgentina.toISOString());
+  
+  // Log para depuración
+  console.log("Fecha actual en Argentina:", nowArgentina.toLocaleString("es-AR"));
+  console.log("Rango de búsqueda (hora Argentina):", 
+    todayStartArgentina.toLocaleString("es-AR"), 
+    "a", 
+    todayEndArgentina.toLocaleString("es-AR"));
   console.log("Rango de búsqueda en UTC:", 
     todayStartUTC.toISOString(), 
     "a", 
     todayEndUTC.toISOString());
-  console.log("Fechas en formato local:", 
-    todayStartUTC.toLocaleString(), 
-    "a", 
-    todayEndUTC.toLocaleString());
   
   return { todayStartUTC, todayEndUTC };
 }
