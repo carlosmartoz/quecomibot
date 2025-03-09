@@ -7,7 +7,6 @@ const TelegramBot = require("node-telegram-bot-api");
 const OpenAI = require("openai");
 const fs = require("fs");
 const https = require("https");
-const mercadopago = require("mercadopago");
 const { createClient } = require("@supabase/supabase-js");
 
 // Get environment variables
@@ -29,10 +28,15 @@ const openai = new OpenAI({
   apiKey: OPENAI_API_KEY,
 });
 
-// Initialize MercadoPago
-const mp = new mercadopago.MercadoPagoConfig({
+const { MercadoPagoConfig, Payment } = require("mercadopago");
+
+// Configurar Mercado Pago
+const mpClient = new MercadoPagoConfig({
   accessToken: MERCADO_PAGO_ACCESS_TOKEN,
+  options: { timeout: 5000 },
 });
+
+const payment = new Payment(mpClient);
 
 // Initialize Express app
 const app = express();
@@ -485,26 +489,44 @@ bot.on("message", async (msg) => {
     }
 
     if (msg.text === "/premium") {
-      const preference = new mercadopago.Preference(mp);
-
-      const response = await preference.create({
-        items: [
-          {
-            title: "Suscripción Premium",
-            unit_price: 4700,
-            quantity: 1,
+      try {
+        // Crear el cuerpo de la solicitud de pago
+        const body = {
+          transaction_amount: 10.0, // Monto a pagar
+          description: "Suscripción Premium - QueComí",
+          payment_method_id: "pix", // Cambiar según el método de pago (tarjeta, efectivo, etc.)
+          payer: {
+            email: "test_user@example.com", // Usa un email real o uno de prueba de MercadoPago
           },
-        ],
-        back_urls: {
-          success: "https://quecomibotpreview.onrender.com/success",
-          failure: "https://quecomibotpreview.onrender.com/failure",
-          pending: "https://quecomibotpreview.onrender.com/pending",
-        },
-        auto_return: "approved",
-      });
+        };
 
-      console.log(response);
-      const paymentLink = response.init_point;
+        // Opciones de la solicitud (opcional)
+        const requestOptions = {
+          idempotencyKey: `payment-${Date.now()}`, // Evitar pagos duplicados
+        };
+
+        // Crear el pago
+        const response = await payment.create({ body, requestOptions });
+
+        console.log("Pago creado:", response);
+
+        // Extraer el enlace de pago (sandbox/init_point para modo prueba)
+        const paymentLink =
+          response.point_of_interaction.transaction_data.ticket_url;
+
+        // Enviar el enlace al usuario
+        bot.sendMessage(
+          chatId,
+          `💳 ¡Haz clic en el siguiente enlace para realizar el pago! 👇\n\n[➡️ Pagar ahora](${paymentLink})`,
+          { parse_mode: "Markdown" }
+        );
+      } catch (error) {
+        console.error("Error creando el pago:", error);
+        bot.sendMessage(
+          chatId,
+          "❌ Hubo un error al generar el enlace de pago. Inténtalo nuevamente más tarde."
+        );
+      }
 
       return;
     }
