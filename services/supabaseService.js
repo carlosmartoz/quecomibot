@@ -223,17 +223,105 @@ function formatMealSummary(meals) {
   return summary;
 }
 
-// Add this function to update user subscription status
-async function updateUserSubscription(userId, isPremium) {
+// Verificar si un usuario tiene solicitudes disponibles
+async function checkUserRequests(userId) {
   try {
     const { data, error } = await supabase
-      .from("pacients")
-      .update({ subscription: isPremium })
-      .eq("uuid", userId);
+      .from("patients")
+      .select("requests, subscription")
+      .eq("user_id", userId)
+      .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error("Error checking user requests:", error);
+      return { hasRequests: false, isPremium: false };
+    }
 
-    return data;
+    // Si el usuario es PRO o MEDICAL, siempre tiene solicitudes disponibles
+    if (data.subscription === 'PRO' || data.subscription === 'MEDICAL') {
+      return { hasRequests: true, isPremium: true };
+    }
+
+    // Verificar si tiene solicitudes disponibles
+    return { 
+      hasRequests: data.requests > 0, 
+      isPremium: false,
+      remainingRequests: data.requests 
+    };
+  } catch (error) {
+    console.error("Error in checkUserRequests:", error);
+    return { hasRequests: false, isPremium: false };
+  }
+}
+
+// Decrementar el contador de solicitudes
+async function decrementUserRequests(userId) {
+  try {
+    // Primero verificamos el tipo de suscripción del usuario
+    const { data: userData, error: userError } = await supabase
+      .from("patients")
+      .select("subscription, requests")
+      .eq("user_id", userId)
+      .single();
+
+    if (userError) {
+      console.error("Error checking user subscription status:", userError);
+      return false;
+    }
+
+    // Si es PRO o MEDICAL, no decrementamos
+    if (userData.subscription === 'PRO' || userData.subscription === 'MEDICAL') {
+      return true;
+    }
+
+    // Si es FREE y tiene solicitudes, decrementamos
+    if (userData.requests > 0) {
+      const { error } = await supabase
+        .from("patients")
+        .update({ requests: userData.requests - 1 })
+        .eq("user_id", userId);
+
+      if (error) {
+        console.error("Error decrementing user requests:", error);
+        return false;
+      }
+      
+      return true;
+    }
+    
+    return false;
+  } catch (error) {
+    console.error("Error in decrementUserRequests:", error);
+    return false;
+  }
+}
+
+// Modificar la función updateUserSubscription
+async function updateUserSubscription(userId, isPremium) {
+  try {
+    // Convertir el booleano a tipo de suscripción
+    const subscriptionType = isPremium ? 'PRO' : 'FREE';
+    
+    // Actualizar en la tabla users (si existe)
+    try {
+      await supabase
+        .from("users")
+        .update({ subscription: subscriptionType })
+        .eq("telegram_id", userId);
+    } catch (userError) {
+      console.error("Error updating user subscription in users table:", userError);
+      // Continuamos aunque falle, ya que la tabla principal es patients
+    }
+    
+    // Actualizar en la tabla patients
+    const { error: patientError } = await supabase
+      .from("patients")
+      .update({ subscription: subscriptionType })
+      .eq("user_id", userId);
+
+    if (patientError) throw patientError;
+    
+    return true;
   } catch (error) {
     console.error("Error updating user subscription:", error);
 
@@ -262,7 +350,7 @@ async function getPatientByUserId(userId) {
   }
 }
 
-// Add this function to create or update patient information
+// Modificar la función savePatientInfo para incluir el campo requests
 async function savePatientInfo(userId, patientInfo) {
   try {
     const existingPatient = await getPatientByUserId(userId);
@@ -284,8 +372,8 @@ async function savePatientInfo(userId, patientInfo) {
         age: patientInfo.age || null,
         height: patientInfo.height || null,
         weight: patientInfo.weight || null,
-        requests: 20, // Default value
-        subscription: "FREE", // Default value
+        subscription: 'FREE', // Valor por defecto
+        requests: "20" // Valor por defecto para nuevos usuarios
       };
 
       const { data, error } = await supabase
@@ -308,4 +396,6 @@ module.exports = {
   updateUserSubscription,
   getPatientByUserId,
   savePatientInfo,
+  checkUserRequests,
+  decrementUserRequests,
 };
