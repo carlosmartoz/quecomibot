@@ -26,7 +26,7 @@ async function handleMessage(bot, msg) {
     if (processingMessages.has(userId)) {
       bot.sendMessage(
         chatId,
-        "🤔 ¡Ups! Mi cerebro está procesando tu mensaje anterior. ¡Dame un momentito para ponerme al día! 🏃‍♂️💨"
+        "🤔 ¡Ups! Mi cerebro está procesando tu mensaje anterior. ¡Dame un momentito para ponerme al día! 🏃‍♂️"
       );
 
       return;
