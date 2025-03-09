@@ -503,6 +503,7 @@ async function savePatientInfo(userId, patientInfo) {
   }
 }
 
+// Export the functions
 module.exports = {
   supabase,
   saveMealForUser,
