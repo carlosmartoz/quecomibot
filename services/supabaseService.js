@@ -510,7 +510,7 @@ async function updateProfessionalId(userId, professionalId) {
   try {
     const { error } = await supabase
       .from("patients")
-      .update({ professional: professionalId })
+      .update({ professional_id: professionalId })
       .eq("user_id", userId);
 
     if (error) {
