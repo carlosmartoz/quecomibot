@@ -481,6 +481,8 @@ bot.on("message", async (msg) => {
 
     if (msg.text === "/premium") {
       console.log("Prueba");
+
+      return;
     }
 
     if (msg.text === "Terminar el día") {
