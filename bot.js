@@ -208,7 +208,7 @@ bot.on("message", async (msg) => {
     if (processingMessages.has(userId)) {
       bot.sendMessage(
         chatId,
-        "🙏 Por favor espera mientras analizo tu mensaje anterior. ¡Enseguida te respondo!"
+        "🤔 ¡Ups! Mi cerebro está procesando tu mensaje anterior. ¡Dame un momentito para ponerme al día! 🏃‍♂️💨"
       );
       return;
     }
@@ -294,8 +294,9 @@ bot.on("message", async (msg) => {
     if (response && shouldAnalyze) {
       saveMealForUser(userId, response);
 
-      await bot.deleteMessage(chatId, processingMessage.message_id);
       bot.sendMessage(chatId, response);
+
+      await bot.deleteMessage(chatId, processingMessage.message_id);
 
       processingMessages.delete(userId);
     }
