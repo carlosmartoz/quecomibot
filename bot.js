@@ -5,7 +5,8 @@ const TelegramBot = require("node-telegram-bot-api");
 const messageHandler = require("./handlers/messageHandler");
 const supabaseService = require("./services/supabaseService");
 const mercadoPagoService = require("./services/mercadoPagoService");
-const schedulerService = require('./services/schedulerService');
+const schedulerService = require("./services/schedulerService");
+require("./jobs/subscriptionChecker");
 
 // Initialize Express app
 const app = express();
@@ -118,7 +119,7 @@ app.listen(config.server.port, () => {
   console.log(
     `✅ Webhook active on ${config.telegram.webhookUrl}/bot${config.telegram.token}`
   );
-  
+
   // Iniciar las tareas programadas pasando la instancia del bot
   schedulerService.initScheduledTasks(bot);
 });

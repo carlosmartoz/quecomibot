@@ -303,9 +303,13 @@ async function decrementUserRequests(userId) {
 // Modificar la función updateUserSubscription
 async function updateUserSubscription(userId, isPremium) {
   try {
+    // Crear timestamp en UTC
+    const now = new Date().toISOString();
+
     const updateData = {
       subscription: "PRO",
-      requests: "PRO", // Indicador de requests ilimitados para usuarios PRO
+      requests: "PRO",
+      start_date: now, // Se guardará como timestamptz en Supabase
     };
 
     // Actualizar en la tabla patients
@@ -320,11 +324,83 @@ async function updateUserSubscription(userId, isPremium) {
     }
 
     console.log(
-      `Successfully updated subscription for user ${userId} to PRO with unlimited requests`
+      `Successfully updated subscription for user ${userId} to PRO starting from ${now}`
     );
     return true;
   } catch (error) {
     console.error("Error updating user subscription:", error);
+    throw error;
+  }
+}
+
+// Función para verificar suscripciones
+async function checkSubscriptions() {
+  try {
+    // Todas las fechas en UTC
+    const now = new Date();
+
+    // Calcular fechas límite en UTC
+    const notificationDate = new Date(
+      now.getTime() - 27 * 24 * 60 * 60 * 1000
+    ).toISOString();
+    const expirationDate = new Date(
+      now.getTime() - 30 * 24 * 60 * 60 * 1000
+    ).toISOString();
+
+    // Consulta para usuarios que necesitan notificación (usando timestamptz)
+    const { data: usersToNotify, error: notifyError } = await supabase
+      .from("patients")
+      .select("user_id, start_date")
+      .eq("subscription", "PRO")
+      .lt("start_date", notificationDate)
+      .gt("start_date", expirationDate);
+
+    if (notifyError) {
+      console.error("Error fetching users to notify:", notifyError);
+      throw notifyError;
+    }
+
+    // Consulta para usuarios vencidos (usando timestamptz)
+    const { data: expiredUsers, error: expiredError } = await supabase
+      .from("patients")
+      .select("user_id, start_date")
+      .eq("subscription", "PRO")
+      .lt("start_date", expirationDate);
+
+    if (expiredError) {
+      console.error("Error fetching expired users:", expiredError);
+      throw expiredError;
+    }
+
+    return { usersToNotify, expiredUsers };
+  } catch (error) {
+    console.error("Error checking subscriptions:", error);
+    throw error;
+  }
+}
+
+// Función para revertir a suscripción FREE
+async function revertToFreeSubscription(userId) {
+  try {
+    const updateData = {
+      subscription: "FREE",
+      requests: "20",
+      start_date: null, // Limpiamos el timestamptz
+    };
+
+    const { error } = await supabase
+      .from("patients")
+      .update(updateData)
+      .eq("user_id", userId);
+
+    if (error) throw error;
+
+    console.log(
+      `Successfully reverted subscription to FREE for user ${userId}`
+    );
+    return true;
+  } catch (error) {
+    console.error("Error reverting subscription:", error);
     throw error;
   }
 }
@@ -401,5 +477,7 @@ module.exports = {
   savePatientInfo,
   checkUserRequests,
   decrementUserRequests,
-  supabase
+  supabase,
+  checkSubscriptions,
+  revertToFreeSubscription,
 };
