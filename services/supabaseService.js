@@ -398,4 +398,5 @@ module.exports = {
   savePatientInfo,
   checkUserRequests,
   decrementUserRequests,
+  supabase
 };
