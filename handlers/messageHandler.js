@@ -241,6 +241,21 @@ async function processFood(bot, msg, userId, chatId) {
 
   let processingSecondMessage;
 
+  // Verificar si el usuario tiene solicitudes disponibles
+  const { hasRequests, isPremium, remainingRequests } = await supabaseService.checkUserRequests(userId);
+  
+  if (!hasRequests) {
+    // El usuario no tiene solicitudes disponibles
+    await bot.sendMessage(
+      chatId,
+      "🔒 Has alcanzado el límite de solicitudes gratuitas.\n\n" +
+      "Para seguir utilizando el bot, actualiza a la versión Premium y disfruta de:\n" +
+      "✨ Solicitudes ilimitadas\n" +
+      "Usa el comando /premium para actualizar ahora."
+    );
+    return;
+  }
+
   processingMessages.set(userId, true);
 
   try {
@@ -290,17 +305,54 @@ async function processFood(bot, msg, userId, chatId) {
 
       response = await openaiService.processMessageWithAI(threadId, msg.text);
     }
-    if (response) {
-      await supabaseService.saveMealForUser(userId, response);
 
-      bot.sendMessage(chatId, response);
-
-      if (processingSecondMessage) {
-        await bot.deleteMessage(chatId, processingSecondMessage.message_id);
-      } else if (processingMessage) {
-        await bot.deleteMessage(chatId, processingMessage.message_id);
+    // Decrementar el contador de solicitudes (solo si no es premium)
+    if (!isPremium) {
+      await supabaseService.decrementUserRequests(userId);
+      
+      // Si quedan pocas solicitudes, mostrar un aviso
+      if (remainingRequests <= 5 && remainingRequests > 1) {
+        await bot.sendMessage(
+          chatId,
+          `⚠️ Te quedan ${remainingRequests - 1} solicitudes gratuitas.\n` +
+          "Considera actualizar a Premium para disfrutar de solicitudes ilimitadas.\n" +
+          "Usa /premium para más información."
+        );
+      } else if (remainingRequests === 1) {
+        await bot.sendMessage(
+          chatId,
+          "⚠️ Esta es tu última solicitud gratuita.\n" +
+          "Para seguir utilizando el bot, actualiza a Premium.\n" +
+          "Usa /premium para más información."
+        );
       }
     }
+
+    // Guardar la comida en la base de datos
+    await supabaseService.saveMealForUser(userId, response);
+
+    // Enviar la respuesta al usuario
+    if (processingMessage) {
+      await bot.deleteMessage(chatId, processingMessage.message_id);
+    }
+    if (processingSecondMessage) {
+      await bot.deleteMessage(chatId, processingSecondMessage.message_id);
+    }
+    await bot.sendMessage(chatId, response);
+  } catch (error) {
+    console.error("Error processing food:", error);
+    
+    if (processingMessage) {
+      await bot.deleteMessage(chatId, processingMessage.message_id);
+    }
+    if (processingSecondMessage) {
+      await bot.deleteMessage(chatId, processingSecondMessage.message_id);
+    }
+    
+    await bot.sendMessage(
+      chatId,
+      "¡Ups! 🙈 Parece que mi cerebro nutricional está haciendo una pequeña siesta digestiva 😴. \n\n ¿Podrías intentarlo de nuevo en un momento? ¡Prometo estar más despierto! 🌟"
+    );
   } finally {
     processingMessages.delete(userId);
   }
