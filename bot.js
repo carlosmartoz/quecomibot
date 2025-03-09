@@ -485,7 +485,26 @@ bot.on("message", async (msg) => {
     }
 
     if (msg.text === "/premium") {
-      console.log(mp);
+      const preference = new mercadopago.Preference(mp);
+
+      const response = await preference.create({
+        items: [
+          {
+            title: "Suscripción Premium",
+            unit_price: 5.0,
+            quantity: 1,
+          },
+        ],
+        back_urls: {
+          success: "https://tu-bot.com/success",
+          failure: "https://tu-bot.com/failure",
+          pending: "https://tu-bot.com/pending",
+        },
+        auto_return: "approved",
+      });
+
+      console.log(response);
+      const paymentLink = response.init_point;
 
       return;
     }
