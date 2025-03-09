@@ -494,6 +494,7 @@ bot.on("message", async (msg) => {
         const body = {
           transaction_amount: 1000.0, // Monto a pagar
           description: "Suscripción Premium - QueComí",
+          payment_method_id: "card", // Cambiar según el método de pago (tarjeta, efectivo, etc.)
           payer: {
             email: "test_user@example.com", // Usa un email real o uno de prueba de MercadoPago
           },
