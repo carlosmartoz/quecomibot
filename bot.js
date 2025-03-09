@@ -123,7 +123,7 @@ Para cada alimento, usa este formato exacto:
         content: `Analiza el siguiente mensaje y extrae los alimentos mencionados, ignorando verbos como "desayuné", "almorcé", "comí", "cené", etc. 
         
 Si hay múltiples alimentos, enuméralos por separado con números (1., 2., etc.) y proporciona las calorías y macronutrientes para CADA UNO individualmente.
-IMPORTANTE: Trata cada plato completo como una sola unidad. Por ejemplo, "milanesa con puré" es UN SOLO plato, no lo separes en "milanesa" y "papas". Solo separa los alimentos cuando claramente son elementos distintos separados por comas o "y".
+IMPORTANTE: Trata cada plato completo como una sola unidad. Por ejemplo, "milanesa con papas" es UN SOLO plato, no lo separes en "milanesa" y "papas". Solo separa los alimentos cuando claramente son elementos distintos separados por comas o "y".
 
 Ejemplos:
 - "milanesa con puré" → UN solo plato
@@ -409,94 +409,6 @@ async function getTodaysMealsFromDB(userId) {
   }
 }
 
-// Get meal history from Supabase for a user
-async function getHistoryFromDB(userId, days = 7) {
-  try {
-    // Calculate the date range
-    const now = new Date();
-    const startDate = new Date(now);
-    startDate.setDate(startDate.getDate() - days);
-    
-    // Convert to UTC for Supabase query
-    const startDateUTC = new Date(startDate.getTime() + 3 * 60 * 60 * 1000);
-    
-    // Query Supabase for meals within the date range
-    const { data, error } = await supabase
-      .from('meals')
-      .select('*')
-      .eq('user_id', userId)
-      .gte('created_at', startDateUTC.toISOString())
-      .order('created_at', { ascending: false });
-    
-    if (error) {
-      console.error("Error fetching meal history from database:", error);
-      return "Error al obtener el historial de comidas. Por favor, intenta nuevamente.";
-    }
-    
-    if (!data || data.length === 0) {
-      return `No has registrado comidas en los últimos ${days} días.`;
-    }
-    
-    // Group meals by date
-    const mealsByDate = {};
-    
-    data.forEach(meal => {
-      // Convert UTC time from Supabase back to Argentina time for display
-      const mealTimeUTC = new Date(meal.created_at);
-      const mealTimeArgentina = new Date(mealTimeUTC.getTime() - 3 * 60 * 60 * 1000);
-      
-      // Format date as YYYY-MM-DD
-      const dateKey = mealTimeArgentina.toISOString().split('T')[0];
-      
-      if (!mealsByDate[dateKey]) {
-        mealsByDate[dateKey] = [];
-      }
-      
-      mealsByDate[dateKey].push({
-        time: mealTimeArgentina,
-        description: meal.description,
-        kcal: meal.kcal,
-        protein: meal.protein,
-        carbohydrates: meal.carbohydrates,
-        fat: meal.fat
-      });
-    });
-    
-    // Format the history message
-    let history = `📖 Historial de comidas (últimos ${days} días):\n\n`;
-    
-    // Sort dates in descending order (most recent first)
-    const sortedDates = Object.keys(mealsByDate).sort().reverse();
-    
-    sortedDates.forEach(date => {
-      const meals = mealsByDate[date];
-      const formattedDate = new Date(date).toLocaleDateString('es-AR', { 
-        year: 'numeric', 
-        month: '2-digit', 
-        day: '2-digit' 
-      });
-      
-      history += `📅 ${formattedDate}\n`;
-      
-      meals.forEach(meal => {
-        const timeOptions = { hour: '2-digit', minute: '2-digit', hour12: false };
-        history += `🕐 ${meal.time.toLocaleTimeString('es-AR', timeOptions)}\n`;
-        history += `🍽️ ${meal.description || 'Sin descripción'}\n`;
-        history += `📊 Nutrientes:\n`;
-        history += `  • Calorías: ${meal.kcal || '0'} kcal\n`;
-        history += `  • Proteínas: ${meal.protein || '0'}g\n`;
-        history += `  • Carbohidratos: ${meal.carbohydrates || '0'}g\n`;
-        history += `  • Grasas: ${meal.fat || '0'}g\n\n`;
-      });
-    });
-    
-    return history;
-  } catch (error) {
-    console.error("Error in getHistoryFromDB:", error);
-    return "Error al obtener el historial de comidas. Por favor, intenta nuevamente.";
-  }
-}
-
 // Handle incoming messages
 bot.on("message", async (msg) => {
   try {
@@ -507,16 +419,13 @@ bot.on("message", async (msg) => {
     if (msg.text === "/start") {
       bot.sendMessage(
         chatId,
-        "¡Hola! 👋 Soy NutriBot, tu asistente experto en nutrición 🍽️ \n\n" +
+        "¡Hola! 👋 Soy tu asistente para llevar un registro de tus comidas 🍽️ \n\n" +
           "Podés enviarme:\n" +
           "- Fotos de comidas 📸\n" +
           "- Descripciones de lo que has comido ✍️\n" +
-          "- Mensajes de voz describiendo tus comidas 🎤\n\n" +
-          "Comandos disponibles:\n" +
+          "- Mensajes de voz describiendo tus comidas 🎤\n" +
           "- 'resumen' para ver tus comidas de hoy 📋\n" +
-          "- 'Terminar el día' para ver tu resumen diario 📋\n" +
-          "- '/historial' para ver tus comidas de los últimos 7 días 📆\n" +
-          "- '/historial X' para ver tus comidas de los últimos X días (máx. 30) 📆\n\n" +
+          "- 'Terminar el día' para ver tu resumen diario 📋\n\n" +
           "¡Empecemos! ¿Qué has comido hoy?"
       );
       return;
@@ -532,24 +441,6 @@ bot.on("message", async (msg) => {
       bot.sendMessage(chatId, "Obteniendo el resumen de tus comidas de hoy...");
       const dbSummary = await getTodaysMealsFromDB(userId);
       bot.sendMessage(chatId, dbSummary);
-      return;
-    }
-    
-    // Handle /historial command
-    if (msg.text && msg.text.startsWith("/historial")) {
-      const parts = msg.text.split(" ");
-      let days = 7; // Default to 7 days
-      
-      if (parts.length > 1) {
-        const requestedDays = parseInt(parts[1]);
-        if (!isNaN(requestedDays) && requestedDays > 0) {
-          days = Math.min(requestedDays, 30); // Cap at 30 days
-        }
-      }
-      
-      bot.sendMessage(chatId, `Obteniendo tu historial de los últimos ${days} días...`);
-      const history = await getHistoryFromDB(userId, days);
-      bot.sendMessage(chatId, history);
       return;
     }
     
@@ -579,15 +470,6 @@ bot.on("message", async (msg) => {
       const audioBuffer = await downloadFile(fileLink);
       const transcription = await transcribeAudio(audioBuffer);
       
-      // Check if the transcription is food-related
-      if (!isFoodRelated(transcription)) {
-        bot.sendMessage(
-          chatId,
-          "¡Oops! 🍽️\nParece que me distraje con una receta deliciosa y olvidé el tema. 😅\nPor favor, envíame solo lo relacionado con alimentos para que pueda ponerme a trabajar en el análisis nutricional 😋"
-        );
-        return;
-      }
-      
       bot.sendMessage(
         chatId,
         "🔍 ¡Detective gastronómico en acción! Analizando tu deliciosa comida... 🧐✨"
@@ -596,17 +478,8 @@ bot.on("message", async (msg) => {
       response = await processMessageWithAI(threadId, transcription);
     } else if (msg.text) {
       // Text message processing - skip commands
-      if (msg.text === "/start" || msg.text === "Terminar el día" || msg.text.toLowerCase() === "resumen" || msg.text.startsWith("/historial")) {
+      if (msg.text === "/start" || msg.text === "Terminar el día" || msg.text.toLowerCase() === "resumen") {
         // Skip processing commands as food
-        return;
-      }
-      
-      // Check if the text is food-related
-      if (!isFoodRelated(msg.text)) {
-        bot.sendMessage(
-          chatId,
-          "¡Oops! 🍽️\nParece que me distraje con una receta deliciosa y olvidé el tema. 😅\nPor favor, envíame solo lo relacionado con alimentos para que pueda ponerme a trabajar en el análisis nutricional 😋"
-        );
         return;
       }
       
@@ -622,18 +495,8 @@ bot.on("message", async (msg) => {
     if (response) {
       // Save the meal information to database
       await saveMealForUser(userId, response);
-      
-      // Send the response to the user with inline keyboard buttons
-      bot.sendMessage(chatId, response, {
-        reply_markup: {
-          inline_keyboard: [
-            [
-              { text: "📋 Ver resumen del día", callback_data: "daily_summary" },
-              { text: "📊 Ver historial", callback_data: "history" }
-            ]
-          ]
-        }
-      });
+      // Send the response to the user
+      bot.sendMessage(chatId, response);
     }
   } catch (error) {
     console.error("Error:", error);
@@ -647,44 +510,3 @@ bot.on("message", async (msg) => {
 
 // Log bot startup
 console.log("🤖 QueComí 'add-supabase' Started...");
-
-// Handle callback queries from inline keyboard buttons
-bot.on('callback_query', async (callbackQuery) => {
-  const chatId = callbackQuery.message.chat.id;
-  const userId = callbackQuery.from.id;
-  const data = callbackQuery.data;
-
-  try {
-    // Acknowledge the callback query
-    await bot.answerCallbackQuery(callbackQuery.id);
-
-    if (data === 'daily_summary') {
-      // Show daily summary
-      bot.sendMessage(chatId, "Obteniendo el resumen de tus comidas de hoy...");
-      const dbSummary = await getTodaysMealsFromDB(userId);
-      bot.sendMessage(chatId, dbSummary);
-    } else if (data === 'history') {
-      // Show history options
-      bot.sendMessage(chatId, "Selecciona el período de historial:", {
-        reply_markup: {
-          inline_keyboard: [
-            [
-              { text: "7 días", callback_data: "history_7" },
-              { text: "14 días", callback_data: "history_14" },
-              { text: "30 días", callback_data: "history_30" }
-            ]
-          ]
-        }
-      });
-    } else if (data.startsWith('history_')) {
-      // Extract the number of days
-      const days = parseInt(data.split('_')[1]);
-      bot.sendMessage(chatId, `Obteniendo tu historial de los últimos ${days} días...`);
-      const history = await getHistoryFromDB(userId, days);
-      bot.sendMessage(chatId, history);
-    }
-  } catch (error) {
-    console.error("Error handling callback query:", error);
-    bot.sendMessage(chatId, "Ocurrió un error al procesar tu solicitud. Por favor, intenta nuevamente.");
-  }
-});
