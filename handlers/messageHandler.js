@@ -73,7 +73,7 @@ async function handleStartCommand(bot, chatId, userId) {
       "- Fotos de comidas 📸\n" +
       "- Descripciones de lo que has comido ✍️\n" +
       "- Mensajes de voz describiendo tus comidas 🎤\n" +
-      "- '/resumen' para ver tus comidas de hoy 📋\n" 
+      "- '/resumen' para ver tus comidas de hoy 📋\n"
   );
 
   if (!existingPatient) {
