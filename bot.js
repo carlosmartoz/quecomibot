@@ -624,8 +624,17 @@ bot.on("message", async (msg) => {
 
     // Handle the response
     if (response) {
+      if (processingSecondMessage) {
+        await bot.deleteMessage(chatId, processingSecondMessage.message_id);
+      } else {
+        await bot.deleteMessage(chatId, processingMessage.message_id);
+      }
+
+      // Store the response temporarily
+      userMeals.set(`temp_${userId}`, response);
+      
       // Send the response with confirmation buttons
-      bot.sendMessage(chatId, response + "\n\n¿Los datos son correctos?", {
+      await bot.sendMessage(chatId, response + "\n\n¿Los datos son correctos?", {
         reply_markup: {
           inline_keyboard: [
             [
@@ -635,15 +644,6 @@ bot.on("message", async (msg) => {
           ]
         }
       });
-      
-      // Store the response temporarily
-      userMeals.set(`temp_${userId}`, response);
-
-      if (processingSecondMessage) {
-        await bot.deleteMessage(chatId, processingSecondMessage.message_id);
-      } else {
-        await bot.deleteMessage(chatId, processingMessage.message_id);
-      }
 
       processingMessages.delete(userId);
     }
