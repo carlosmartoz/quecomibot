@@ -477,6 +477,37 @@ bot.on("message", async (msg) => {
     }
 
     if (msg.text === "/premium") {
+      const chatId = msg.chat.id;
+
+      const options = {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              {
+                text: "💳 Pagar con PayPal",
+                url: "https://www.paypal.com/payment-link",
+              },
+              {
+                text: "💵 Pagar con Mercado Pago",
+                url: "https://www.mercadopago.com/payment-link",
+              },
+            ],
+            [
+              {
+                text: "❌ Cancelar",
+                callback_data: "cancel_payment",
+              },
+            ],
+          ],
+        },
+      };
+
+      bot.sendMessage(
+        chatId,
+        "💰 Elige una opción de pago para completar tu compra:",
+        options
+      );
+
       return;
     }
 
