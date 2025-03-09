@@ -270,12 +270,12 @@ bot.on("message", async (msg) => {
 
       const transcription = await transcribeAudio(audioBuffer);
 
-      await bot.deleteMessage(chatId, processingMessage.message_id);
-
       processingMessage = await bot.sendMessage(
         chatId,
         "🔍 ¡Detective gastronómico en acción! Analizando tu deliciosa comida... 🧐✨"
       );
+
+      await bot.deleteMessage(chatId, processingMessage.message_id);
 
       response = await processMessageWithAI(threadId, transcription);
     } else if (msg.text) {
