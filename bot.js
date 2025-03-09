@@ -7,6 +7,7 @@ const messageHandler = require("./handlers/messageHandler");
 const supabaseService = require("./services/supabaseService");
 const schedulerService = require("./services/schedulerService");
 const mercadoPagoService = require("./services/mercadoPagoService");
+const commandHandler = require("./handlers/commandHandler");
 
 // Initialize Express app
 const app = express();
@@ -37,6 +38,12 @@ app.post(`/bot${config.telegram.token}`, (req, res) => {
 
 // Register message handler
 bot.on("message", (msg) => messageHandler.handleMessage(bot, msg));
+
+// Register commands
+bot.command("start", commandHandler.handleStartCommand);
+bot.command("resumen", commandHandler.handleSummaryCommand);
+bot.command("premium", commandHandler.handlePremiumCommand);
+bot.command("profesional", commandHandler.handleProfesionalCommand);
 
 // Webhook endpoint for payments
 app.post("/payment/webhook", async (req, res) => {

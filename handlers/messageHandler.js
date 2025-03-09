@@ -54,6 +54,38 @@ async function handleMessage(bot, msg) {
       if (handled) return;
     }
 
+    // Check if we're waiting for professional ID
+    if (msg.session.awaitingProfessionalId) {
+      const professionalId = msg.text.trim();
+
+      // Validate that the input is a number
+      if (!/^\d+$/.test(professionalId)) {
+        await bot.sendMessage(
+          chatId,
+          "❌ Por favor, ingresa un ID válido (solo números)."
+        );
+        return;
+      }
+
+      try {
+        await supabaseService.updateProfessionalId(userId, professionalId);
+        await bot.sendMessage(
+          chatId,
+          "✅ ¡Perfecto! El ID del profesional ha sido guardado correctamente."
+        );
+      } catch (error) {
+        console.error("Error saving professional ID:", error);
+        await bot.sendMessage(
+          chatId,
+          "❌ Ocurrió un error al guardar el ID del profesional. Por favor, intenta nuevamente."
+        );
+      }
+
+      // Reset the awaiting flag
+      msg.session.awaitingProfessionalId = false;
+      return;
+    }
+
     return processFood(bot, msg, userId, chatId);
   } catch (error) {
     console.error("handleMessage: Error in handleMessage:", error);

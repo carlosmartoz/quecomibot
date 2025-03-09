@@ -505,6 +505,29 @@ async function savePatientInfo(userId, patientInfo) {
   }
 }
 
+// Function to update professional ID for a patient
+async function updateProfessionalId(userId, professionalId) {
+  try {
+    const { error } = await supabase
+      .from("patients")
+      .update({ professional_id: professionalId })
+      .eq("user_id", userId);
+
+    if (error) {
+      console.error(
+        "updateProfessionalId: Error updating professional ID:",
+        error
+      );
+      throw error;
+    }
+
+    return true;
+  } catch (error) {
+    console.error("updateProfessionalId: Error:", error);
+    throw error;
+  }
+}
+
 // Export the functions
 module.exports = {
   supabase,
@@ -518,4 +541,5 @@ module.exports = {
   updateUserSubscription,
   decrementUserRequests,
   revertToFreeSubscription,
+  updateProfessionalId,
 };
