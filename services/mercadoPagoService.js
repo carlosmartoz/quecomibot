@@ -1,6 +1,6 @@
 // Require dependencies
 const config = require("../config/config");
-const { MercadoPagoConfig, Preference } = require("mercadopago");
+const { MercadoPagoConfig, Preference, Payment } = require("mercadopago");
 
 // Initialize MercadoPago client
 const client = new MercadoPagoConfig({
@@ -9,12 +9,13 @@ const client = new MercadoPagoConfig({
 
 // Create payment link
 async function createPaymentLink(userId) {
+  console.log(`Creating payment link for user ${userId}`);
   try {
     const preference = new Preference(client);
     const preferenceData = {
       items: [
         {
-          title: "Suscripción Premium - QueComí",
+          title: "Suscripción Premium - QueComí (Prueba)",
           unit_price: 50,
           quantity: 1,
         },
@@ -25,9 +26,15 @@ async function createPaymentLink(userId) {
       },
       external_reference: userId.toString(),
       notification_url: `${config.telegram.webhookUrl}/payment/webhook`,
+      auto_return: "approved",
     };
 
+    console.log(
+      "Creating preference with data:",
+      JSON.stringify(preferenceData, null, 2)
+    );
     const response = await preference.create({ body: preferenceData });
+    console.log("Payment link created successfully:", response.init_point);
 
     return response.init_point;
   } catch (error) {
@@ -39,13 +46,29 @@ async function createPaymentLink(userId) {
 
 // Handle payment webhook
 async function handlePaymentWebhook(data) {
-  if (data.type === "payment" && data.data.status === "approved") {
-    const userId = parseInt(data.external_reference);
+  console.log("Received webhook data:", JSON.stringify(data, null, 2));
 
-    return userId;
+  try {
+    if (data.type === "payment") {
+      const payment = new Payment(client);
+      const paymentInfo = await payment.get({ id: data.data.id });
+      console.log("Payment info:", JSON.stringify(paymentInfo, null, 2));
+
+      if (paymentInfo.status === "approved") {
+        const userId = parseInt(paymentInfo.external_reference);
+        console.log(`Payment approved for user ${userId}`);
+        return userId;
+      } else {
+        console.log(`Payment not approved. Status: ${paymentInfo.status}`);
+      }
+    } else {
+      console.log(`Webhook type not handled: ${data.type}`);
+    }
+    return null;
+  } catch (error) {
+    console.error("Error processing payment webhook:", error);
+    throw error;
   }
-
-  return null;
 }
 
 module.exports = {
