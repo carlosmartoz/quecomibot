@@ -39,9 +39,18 @@ app.use(express.json());
 
 // Webhook endpoint
 app.post(`/bot${TELEGRAM_TOKEN}`, (req, res) => {
-  bot.processUpdate(req.body);
-
-  res.sendStatus(200);
+  try {
+    // Process the update
+    bot.processUpdate(req.body);
+    
+    // Log the incoming update for debugging
+    console.log("Received update:", JSON.stringify(req.body, null, 2));
+    
+    res.sendStatus(200);
+  } catch (error) {
+    console.error("Error processing webhook update:", error);
+    res.sendStatus(500);
+  }
 });
 
 // Get the port from the environment variables or use 3000 as default
@@ -432,6 +441,9 @@ async function getTodaysMealsFromDB(userId) {
 // Handle incoming messages
 bot.on("message", async (msg) => {
   try {
+    const chatId = msg.chat.id;
+    const userId = msg.from.id;
+    
     if (processingMessages.has(userId)) {
       bot.sendMessage(
         chatId,
