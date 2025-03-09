@@ -40,9 +40,6 @@ app.post(`/bot${config.telegram.token}`, (req, res) => {
 bot.on("message", (msg) => messageHandler.handleMessage(bot, msg));
 
 // Register commands
-bot.command("start", commandHandler.handleStartCommand);
-bot.command("resumen", commandHandler.handleSummaryCommand);
-bot.command("premium", commandHandler.handlePremiumCommand);
 bot.command("profesional", commandHandler.handleProfesionalCommand);
 
 // Webhook endpoint for payments
