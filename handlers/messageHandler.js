@@ -16,29 +16,10 @@ const awaitingProfessionalId = new Map();
 async function handleMessage(bot, msg) {
   try {
     const chatId = msg.chat.id;
+
     const userId = msg.from.id;
 
     if (msg.sticker || msg.video || msg.video_note) {
-      return;
-    }
-
-    // Allow /start command without registration
-    if (msg.text && msg.text.startsWith("/start")) {
-      const params = msg.text.split(" ");
-      if (params.length > 1 && params[1].toLowerCase() === "premium") {
-        return handlePremiumCommand(bot, chatId, userId);
-      }
-      return handleStartCommand(bot, chatId, userId);
-    }
-
-    // Check if user is registered before allowing any other action
-    const existingPatient = await supabaseService.getPatientByUserId(userId);
-    if (!existingPatient) {
-      await bot.sendMessage(
-        chatId,
-        "👋 ¡Hola! Para poder usar el bot, necesito algunos datos básicos.\n\n" +
-          "Por favor, usa el comando /start para registrarte primero. 📝"
-      );
       return;
     }
 
@@ -47,7 +28,18 @@ async function handleMessage(bot, msg) {
         chatId,
         "🤔 ¡Ups! Mi cerebro está procesando tu mensaje anterior. ¡Dame un momentito para ponerme al día! 🏃‍♂️💨"
       );
+
       return;
+    }
+
+    if (msg.text && msg.text.startsWith("/start")) {
+      const params = msg.text.split(" ");
+
+      if (params.length > 1 && params[1].toLowerCase() === "premium") {
+        return handlePremiumCommand(bot, chatId, userId);
+      }
+
+      return handleStartCommand(bot, chatId, userId);
     }
 
     if (msg.text && msg.text.toLowerCase() === "/premium") {
@@ -109,7 +101,9 @@ async function handleMessage(bot, msg) {
     return processFood(bot, msg, userId, chatId);
   } catch (error) {
     console.error("handleMessage: Error in handleMessage:", error);
+
     processingMessages.delete(msg.from.id);
+
     bot.sendMessage(
       msg.chat.id,
       "¡Ups! 🙈 Parece que mi cerebro nutricional está haciendo una pequeña siesta digestiva 😴. \n\n ¿Podrías intentarlo de nuevo en un momento? ¡Prometo estar más despierto! 🌟"
