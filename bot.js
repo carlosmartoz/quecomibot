@@ -542,21 +542,13 @@ bot.on("message", async (msg) => {
     if (msg.text === "/start") {
       bot.sendMessage(
         chatId,
-        "¡Hola! 👋 Soy NutriBot, tu asistente experto en nutrición 🍽️ \n\n" +
+        "¡Hola! 👋 Soy tu asistente para llevar un registro de tus comidas 🍽️ \n\n" +
           "Podés enviarme:\n" +
           "- Fotos de comidas 📸\n" +
           "- Descripciones de lo que has comido ✍️\n" +
-          "- Mensajes de voz describiendo tus comidas 🎤\n\n" +
-          "Comandos disponibles:\n" +
+          "- Mensajes de voz describiendo tus comidas 🎤\n" +
           "- 'resumen' para ver tus comidas de hoy 📋\n" +
-          "- '/resumen' para ver tus comidas de hoy con detalles 📋\n" +
-          "- '/resumen-7' para ver resumen de los últimos 7 días 📊\n" +
-          "- '/resumen-14' para ver resumen de los últimos 14 días 📊\n" +
-          "- '/resumen-21' para ver resumen de los últimos 21 días 📊\n" +
-          "- '/resumen-30' para ver resumen de los últimos 30 días 📊\n" +
-          "- 'Terminar el día' para ver tu resumen diario 📋\n" +
-          "- '/historial' para ver tus comidas de los últimos 7 días 📆\n" +
-          "- '/historial X' para ver tus comidas de los últimos X días (máx. 30) 📆\n\n" +
+          "- 'Terminar el día' para ver tu resumen diario 📋\n\n" +
           "¡Empecemos! ¿Qué has comido hoy?"
       );
       return;
@@ -650,12 +642,7 @@ bot.on("message", async (msg) => {
       response = await processMessageWithAI(threadId, transcription);
     } else if (msg.text) {
       // Text message processing - skip commands
-      if (msg.text === "/start" || 
-          msg.text === "Terminar el día" || 
-          msg.text.toLowerCase() === "resumen" || 
-          msg.text.startsWith("/historial") ||
-          msg.text === "/resumen" ||
-          msg.text.match(/^\/resumen-\d+$/)) {
+      if (msg.text === "/start" || msg.text === "Terminar el día" || msg.text.toLowerCase() === "resumen") {
         // Skip processing commands as food
         return;
       }
@@ -687,53 +674,3 @@ bot.on("message", async (msg) => {
 
 // Log bot startup
 console.log("🤖 QueComí 'add-supabase' Started...");
-
-// Handle callback queries from inline keyboard buttons
-bot.on('callback_query', async (callbackQuery) => {
-  const chatId = callbackQuery.message.chat.id;
-  const userId = callbackQuery.from.id;
-  const data = callbackQuery.data;
-
-  try {
-    // Acknowledge the callback query
-    await bot.answerCallbackQuery(callbackQuery.id);
-
-    if (data === 'daily_summary') {
-      // Show daily summary
-      bot.sendMessage(chatId, "Obteniendo el resumen de tus comidas de hoy...");
-      const dbSummary = await getTodaysMealsFromDB(userId);
-      bot.sendMessage(chatId, dbSummary);
-    } else if (data === 'history') {
-      // Show history options
-      bot.sendMessage(chatId, "Selecciona el período de resumen:", {
-        reply_markup: {
-          inline_keyboard: [
-            [
-              { text: "Hoy", callback_data: "summary_today" },
-              { text: "7 días", callback_data: "summary_7" },
-              { text: "14 días", callback_data: "summary_14" }
-            ],
-            [
-              { text: "21 días", callback_data: "summary_21" },
-              { text: "30 días", callback_data: "summary_30" }
-            ]
-          ]
-        }
-      });
-    } else if (data === 'summary_today') {
-      // Show today's detailed summary
-      const dbSummary = await getTodaysMealsFromDB(userId);
-      bot.sendMessage(chatId, dbSummary);
-    } else if (data.startsWith('summary_')) {
-      // Extract the number of days
-      const days = parseInt(data.split('_')[1]);
-      if (days === 7 || days === 14 || days === 21 || days === 30) {
-        const summary = await getSummaryFromDB(userId, days);
-        bot.sendMessage(chatId, summary);
-      }
-    }
-  } catch (error) {
-    console.error("Error handling callback query:", error);
-    bot.sendMessage(chatId, "Ocurrió un error al procesar tu solicitud. Por favor, intenta nuevamente.");
-  }
-});
