@@ -542,11 +542,21 @@ bot.on("message", async (msg) => {
     if (msg.text === "/start") {
       bot.sendMessage(
         chatId,
-        "¡Hola! 👋 Soy QueComíBot, tu asistente experto en nutrición 🍽️ \n\n" +
+        "¡Hola! 👋 Soy NutriBot, tu asistente experto en nutrición 🍽️ \n\n" +
           "Podés enviarme:\n" +
           "- Fotos de comidas 📸\n" +
           "- Descripciones de lo que has comido ✍️\n" +
           "- Mensajes de voz describiendo tus comidas 🎤\n\n" +
+          "Comandos disponibles:\n" +
+          "- 'resumen' para ver tus comidas de hoy 📋\n" +
+          "- '/resumen' para ver tus comidas de hoy con detalles 📋\n" +
+          "- '/resumen-7' para ver resumen de los últimos 7 días 📊\n" +
+          "- '/resumen-14' para ver resumen de los últimos 14 días 📊\n" +
+          "- '/resumen-21' para ver resumen de los últimos 21 días 📊\n" +
+          "- '/resumen-30' para ver resumen de los últimos 30 días 📊\n" +
+          "- 'Terminar el día' para ver tu resumen diario 📋\n" +
+          "- '/historial' para ver tus comidas de los últimos 7 días 📆\n" +
+          "- '/historial X' para ver tus comidas de los últimos X días (máx. 30) 📆\n\n" +
           "¡Empecemos! ¿Qué has comido hoy?"
       );
       return;
