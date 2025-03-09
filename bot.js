@@ -485,51 +485,20 @@ bot.on("message", async (msg) => {
     }
 
     if (msg.text === "/premium") {
-      const bricksBuilder = mp.bricks();
-
-      const renderPaymentBrick = async (bricksBuilder) => {
+      const walletBuilder = mp.bricks();
+      const renderComponent = async (walletBuilder) => {
         const settings = {
           initialization: {
-            amount: 4700,
-          },
-          customization: {
-            visual: {
-              style: {
-                theme: "dark",
-              },
-            },
-            paymentMethods: {
-              creditCard: "all",
-              debitCard: "all",
-              ticket: "all",
-              bankTransfer: "all",
-              atm: "all",
-              onboarding_credits: "all",
-              wallet_purchase: "all",
-              maxInstallments: 1,
-            },
-          },
-          callbacks: {
-            onReady: () => {
-              /*
-             Callback llamado cuando el Brick está listo.
-             Aquí puede ocultar cargamentos de su sitio, por ejemplo.
-            */
-            },
-            onError: (error) => {
-              // callback llamado para todos los casos de error de Brick
-              console.error(error);
-            },
+            preferenceId: "<PREFERENCE_ID>",
           },
         };
-        window.paymentBrickController = await bricksBuilder.create(
-          "payment",
-          "paymentBrick_container",
+        const walletController = await walletBuilder.create(
+          "wallet",
+          "cho_container",
           settings
         );
       };
-
-      renderPaymentBrick(bricksBuilder);
+      renderComponent(walletBuilder);
 
       return;
     }
