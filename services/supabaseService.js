@@ -309,9 +309,9 @@ async function updateUserSubscription(userId, isPremium) {
     // Actualizar en la tabla users (si existe)
     try {
       await supabase
-        .from("users")
+        .from("patients")
         .update({ subscription: subscriptionType })
-        .eq("telegram_id", userId);
+        .eq("user_id", userId);
     } catch (userError) {
       console.error(
         "Error updating user subscription in users table:",
