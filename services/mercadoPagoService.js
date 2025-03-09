@@ -1,13 +1,15 @@
-const mercadopago = require("mercadopago");
+const { MercadoPagoConfig, Preference } = require("mercadopago");
 const config = require("../config/config");
 
-mercadopago.configure({
-  access_token: config.mercadoPago.accessToken,
+// Initialize MercadoPago client
+const client = new MercadoPagoConfig({
+  accessToken: config.mercadoPago.accessToken,
 });
 
 async function createPaymentLink(userId) {
   try {
-    const preference = {
+    const preference = new Preference(client);
+    const preferenceData = {
       items: [
         {
           title: "Suscripción Premium QueComí",
@@ -23,8 +25,8 @@ async function createPaymentLink(userId) {
       notification_url: `${config.telegram.webhookUrl}/payment/webhook`,
     };
 
-    const response = await mercadopago.preferences.create(preference);
-    return response.body.init_point;
+    const response = await preference.create({ body: preferenceData });
+    return response.init_point;
   } catch (error) {
     console.error("Error creating payment link:", error);
     throw error;
