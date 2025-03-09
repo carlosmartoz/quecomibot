@@ -1,7 +1,7 @@
-// handlers/messageHandler.js
+// Require dependencies
+const fileUtils = require("../utils/fileUtils");
 const openaiService = require("../services/openaiService");
 const supabaseService = require("../services/supabaseService");
-const fileUtils = require("../utils/fileUtils");
 const mercadoPagoService = require("../services/mercadoPagoService");
 
 // Track processing messages
@@ -13,67 +13,27 @@ async function handleMessage(bot, msg) {
     const chatId = msg.chat.id;
     const userId = msg.from.id;
 
-    // Check if already processing a message for this user
     if (processingMessages.has(userId)) {
       bot.sendMessage(
         chatId,
         "🤔 ¡Ups! Mi cerebro está procesando tu mensaje anterior. ¡Dame un momentito para ponerme al día! 🏃‍♂️💨"
       );
+
       return;
     }
 
-    // Handle commands
-    if (msg.text === "/start") {
+    if (msg.text && msg.text.toLowerCase() === "/start") {
       return handleStartCommand(bot, chatId);
     }
 
-    if (msg.text === "/premium") {
-      try {
-        const paymentLink = await mercadoPagoService.createPaymentLink(userId);
-        await bot.sendMessage(
-          chatId,
-          "🌟 ¡Actualiza a Premium! ��\n\n" +
-            "Beneficios Premium:\n" +
-            "✨ Análisis nutricional detallado\n" +
-            "📊 Estadísticas avanzadas\n" +
-            "🎯 Seguimiento de objetivos\n" +
-            "💪 Recomendaciones personalizadas\n\n" +
-            "Precio: $4,700 ARS",
-          {
-            reply_markup: {
-              inline_keyboard: [
-                [
-                  {
-                    text: "💳 Pagar con MercadoPago",
-                    url: paymentLink,
-                  },
-                ],
-              ],
-            },
-          }
-        );
-        return;
-      } catch (error) {
-        console.error("Error creating payment link:", error);
-        bot.sendMessage(
-          chatId,
-          "Lo siento, hubo un error al procesar tu solicitud. Por favor, intenta más tarde."
-        );
-        return;
-      }
-    }
-
-    if (msg.text === "Terminar el día") {
-      const summary = supabaseService.getDailySummary(userId);
-      bot.sendMessage(chatId, summary);
-      return;
+    if (msg.text && msg.text.toLowerCase() === "/premium") {
+      return handlePremiumCommand(bot, chatId, userId);
     }
 
     if (msg.text && msg.text.toLowerCase() === "/resumen") {
       return handleSummaryCommand(bot, chatId, userId);
     }
 
-    // Process food-related content
     return processFood(bot, msg, userId, chatId);
   } catch (error) {
     console.error("Error in handleMessage:", error);
@@ -105,43 +65,91 @@ function handleStartCommand(bot, chatId) {
 // Handle /resumen command
 async function handleSummaryCommand(bot, chatId, userId) {
   bot.sendMessage(chatId, "Obteniendo el resumen de tus comidas de hoy...");
+
   const dbSummary = await supabaseService.getTodaysMealsFromDB(userId);
+
   bot.sendMessage(chatId, dbSummary);
 }
 
-// Process food-related content
+// Handle /premium command
+async function handlePremiumCommand(bot, chatId, userId) {
+  try {
+    const paymentLink = await mercadoPagoService.createPaymentLink(userId);
+
+    await bot.sendMessage(
+      chatId,
+      "🌟 ¡Actualiza a Premium! ��\n\n" +
+        "Beneficios Premium:\n" +
+        "✨ Análisis nutricional detallado\n" +
+        "📊 Estadísticas avanzadas\n" +
+        "🎯 Seguimiento de objetivos\n" +
+        "💪 Recomendaciones personalizadas\n\n" +
+        "Precio: $4,700 ARS",
+      {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              {
+                text: "💳 Pagar con MercadoPago",
+                url: paymentLink,
+              },
+            ],
+          ],
+        },
+      }
+    );
+
+    return;
+  } catch (error) {
+    console.error("Error creating payment link:", error);
+
+    bot.sendMessage(
+      chatId,
+      "Lo siento, hubo un error al procesar tu solicitud. Por favor, intenta más tarde."
+    );
+
+    return;
+  }
+}
+
+// Handle food-related content
 async function processFood(bot, msg, userId, chatId) {
   const threadId = await openaiService.getOrCreateThread(userId);
+
   let response;
+
   let processingMessage;
+
   let processingSecondMessage;
 
   processingMessages.set(userId, true);
 
   try {
     if (msg.photo) {
-      // Handle photo
       processingMessage = await bot.sendMessage(
         chatId,
         "🔍 ¡Detective gastronómico en acción! Analizando tu deliciosa comida... 🧐✨"
       );
 
       const photo = msg.photo[msg.photo.length - 1];
+
       const fileLink = await bot.getFileLink(photo.file_id);
+
       response = await openaiService.processMessageWithAI(
         threadId,
         fileLink,
         true
       );
     } else if (msg.voice) {
-      // Handle voice message
       processingMessage = await bot.sendMessage(
         chatId,
         "🎙️ ¡Escuchando atentamente tus palabras! Transformando tu audio en texto... ✨"
       );
 
       const fileLink = await bot.getFileLink(msg.voice.file_id);
+
       const audioBuffer = await fileUtils.downloadFile(fileLink);
+
       const transcription = await openaiService.transcribeAudio(audioBuffer);
 
       processingSecondMessage = await bot.sendMessage(
@@ -156,7 +164,6 @@ async function processFood(bot, msg, userId, chatId) {
         transcription
       );
     } else if (msg.text) {
-      // Handle text message
       processingMessage = await bot.sendMessage(
         chatId,
         "🔍 ¡Detective gastronómico en acción! Analizando tu deliciosa comida... 🧐✨"
@@ -164,16 +171,11 @@ async function processFood(bot, msg, userId, chatId) {
 
       response = await openaiService.processMessageWithAI(threadId, msg.text);
     }
-
-    // Handle the response
     if (response) {
-      // Save the meal information to database
       await supabaseService.saveMealForUser(userId, response);
 
-      // Send the response to the user
       bot.sendMessage(chatId, response);
 
-      // Clean up processing messages
       if (processingSecondMessage) {
         await bot.deleteMessage(chatId, processingSecondMessage.message_id);
       } else if (processingMessage) {

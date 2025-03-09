@@ -1,10 +1,10 @@
-// app.js
+// Require dependencies
 const express = require("express");
-const TelegramBot = require("node-telegram-bot-api");
 const config = require("./config/config");
+const TelegramBot = require("node-telegram-bot-api");
 const messageHandler = require("./handlers/messageHandler");
-const mercadoPagoService = require("./services/mercadoPagoService");
 const supabaseService = require("./services/supabaseService");
+const mercadoPagoService = require("./services/mercadoPagoService");
 
 // Initialize Express app
 const app = express();
@@ -21,15 +21,14 @@ app.use(express.json());
 // Webhook endpoint
 app.post(`/bot${config.telegram.token}`, (req, res) => {
   try {
-    // Process the update
     bot.processUpdate(req.body);
 
-    // Log the incoming update for debugging
     console.log("Received update:", JSON.stringify(req.body, null, 2));
 
     res.sendStatus(200);
   } catch (error) {
     console.error("Error processing webhook update:", error);
+
     res.sendStatus(500);
   }
 });
@@ -41,20 +40,21 @@ bot.on("message", (msg) => messageHandler.handleMessage(bot, msg));
 app.post("/payment/webhook", async (req, res) => {
   try {
     const userId = await mercadoPagoService.handlePaymentWebhook(req.body);
+
     if (userId) {
-      // Update user subscription status in Supabase
       await supabaseService.updateUserSubscription(userId, true);
 
-      // Send confirmation message to user
       bot.sendMessage(
         userId,
         "🎉 ¡Felicitaciones! Tu suscripción Premium ha sido activada.\n\n" +
           "Ahora puedes disfrutar de todas las funciones premium. ¡Buen provecho! 🍽️✨"
       );
     }
+
     res.sendStatus(200);
   } catch (error) {
     console.error("Error processing payment webhook:", error);
+
     res.sendStatus(500);
   }
 });

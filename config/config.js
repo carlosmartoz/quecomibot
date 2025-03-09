@@ -1,6 +1,7 @@
-// config/config.js
+// Require dependencies
 require("dotenv").config();
 
+// Export configuration
 module.exports = {
   telegram: {
     token: process.env.TELEGRAM_TOKEN,
