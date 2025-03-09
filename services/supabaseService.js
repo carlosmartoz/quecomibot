@@ -174,7 +174,7 @@ function formatMealSummary(meals) {
     // Convert UTC time from Supabase back to Argentina time for display
     const mealTimeUTC = new Date(meal.created_at);
     const mealTimeArgentina = new Date(
-      mealTimeUTC.getTime() * 60 * 60 * 1000
+      mealTimeUTC.getTime() + 0 * 60 * 60 * 1000
     );
 
     // Use 24-hour format for time display
