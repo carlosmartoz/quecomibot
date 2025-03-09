@@ -8,8 +8,8 @@ const mercadoPagoService = require("../services/mercadoPagoService");
 const processingMessages = new Map();
 
 // Add these at the top of the file with other state tracking variables
-const userStates = new Map(); // Track conversation state for each user
-const userTempData = new Map(); // Store temporary user data during conversation
+const userStates = new Map();
+const userTempData = new Map();
 
 // Handle incoming messages
 async function handleMessage(bot, msg) {
@@ -58,10 +58,8 @@ async function handleMessage(bot, msg) {
 
 // Handle /start command
 async function handleStartCommand(bot, chatId, userId) {
-  // First, check if the patient already exists
   const existingPatient = await supabaseService.getPatientByUserId(userId);
 
-  // Send welcome message
   await bot.sendMessage(
     chatId,
     "¡Hola! 👋 Soy tu asistente para llevar un registro de tus comidas 🍽️ \n\n" +
@@ -74,7 +72,6 @@ async function handleStartCommand(bot, chatId, userId) {
   );
 
   if (!existingPatient) {
-    // Start the patient registration process
     userStates.set(userId, "WAITING_NAME");
     userTempData.set(userId, {});
 
@@ -84,7 +81,6 @@ async function handleStartCommand(bot, chatId, userId) {
         "¿Cuál es tu nombre completo?"
     );
   } else {
-    // Patient already exists, just greet them
     await bot.sendMessage(
       chatId,
       `¡Bienvenido de nuevo, ${existingPatient.name || "amigo"}! 🎉\n\n` +
@@ -96,14 +92,19 @@ async function handleStartCommand(bot, chatId, userId) {
 // Add this function to handle the patient registration flow
 async function handlePatientRegistration(bot, msg) {
   const chatId = msg.chat.id;
+
   const userId = msg.from.id;
+
   const currentState = userStates.get(userId);
+
   const userData = userTempData.get(userId) || {};
 
   switch (currentState) {
     case "WAITING_NAME":
       userData.name = msg.text;
+
       userTempData.set(userId, userData);
+
       userStates.set(userId, "WAITING_AGE");
 
       await bot.sendMessage(
@@ -111,40 +112,48 @@ async function handlePatientRegistration(bot, msg) {
         `Gracias, ${userData.name}! 👍\n\n` +
           "¿Cuál es tu edad? (solo el número)"
       );
+
       return true;
 
     case "WAITING_AGE":
       const age = parseInt(msg.text);
+
       if (isNaN(age) || age <= 0 || age > 120) {
         await bot.sendMessage(
           chatId,
           "Por favor, ingresa una edad válida (solo el número)."
         );
+
         return true;
       }
 
       userData.age = age;
+
       userTempData.set(userId, userData);
+
       userStates.set(userId, "WAITING_HEIGHT");
 
       await bot.sendMessage(
         chatId,
         "¿Cuál es tu altura? (en cm o en formato X'XX\")"
       );
+
       return true;
 
     case "WAITING_HEIGHT":
       userData.height = msg.text;
+
       userTempData.set(userId, userData);
+
       userStates.set(userId, "WAITING_WEIGHT");
 
       await bot.sendMessage(chatId, "¿Cuál es tu peso actual? (en kg o lb)");
+
       return true;
 
     case "WAITING_WEIGHT":
       userData.weight = msg.text;
 
-      // Save all collected data
       try {
         await supabaseService.savePatientInfo(userId, userData);
 
@@ -154,11 +163,12 @@ async function handlePatientRegistration(bot, msg) {
             "Ahora puedes comenzar a registrar tus comidas. ¿Qué has comido hoy?"
         );
 
-        // Clear user state and temp data
         userStates.delete(userId);
+
         userTempData.delete(userId);
       } catch (error) {
         console.error("Error saving patient data:", error);
+
         await bot.sendMessage(
           chatId,
           "Lo siento, hubo un error al guardar tu información. Por favor, intenta nuevamente con /start."
@@ -167,7 +177,7 @@ async function handlePatientRegistration(bot, msg) {
       return true;
 
     default:
-      return false; // Not in registration flow
+      return false;
   }
 }
 
