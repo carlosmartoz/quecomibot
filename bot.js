@@ -36,49 +36,21 @@ app.post(`/bot${config.telegram.token}`, (req, res) => {
 // Register message handler
 bot.on("message", (msg) => messageHandler.handleMessage(bot, msg));
 
-// Webhook endpoints for payments
+// Webhook endpoint for payments
 app.post("/payment/webhook", async (req, res) => {
   console.log("Payment webhook received:", JSON.stringify(req.body, null, 2));
-  try {
-    const userId = await mercadoPagoService.handlePaymentWebhook(req.body);
-
-    if (userId) {
-      console.log(`Updating subscription for user ${userId}`);
-      try {
-        await supabaseService.updateUserSubscription(userId, true);
-        console.log(`Subscription updated successfully for user ${userId}`);
-
-        // Enviar mensaje de confirmación
-        try {
-          await bot.sendMessage(
-            userId,
-            "🎉 ¡Felicitaciones! Tu suscripción Premium ha sido activada.\n\n" +
-              "Beneficios activados:\n" +
-              "✨ Análisis nutricional detallado\n" +
-              "📊 Estadísticas avanzadas\n" +
-              "🎯 Seguimiento de objetivos\n" +
-              "💪 Recomendaciones personalizadas\n\n" +
-              "¡Gracias por confiar en QueComí! 🙌"
-          );
-          console.log(`Confirmation message sent to user ${userId}`);
-        } catch (messageError) {
-          console.error("Error sending confirmation message:", messageError);
-        }
-      } catch (updateError) {
-        console.error("Error updating subscription:", updateError);
-      }
-    }
-  } catch (error) {
-    console.error("Error processing payment webhook:", error);
-  }
-
-  // Siempre responder 200 al webhook de MercadoPago
+  await processPayment(req.body);
   res.sendStatus(200);
 });
 
-// Success endpoint
-app.get("/payment/success", (req, res) => {
+// Success callback endpoint
+app.get("/payment/success", async (req, res) => {
   console.log("Payment success callback received:", req.query);
+
+  // Procesar el pago
+  await processPayment(req.query);
+
+  // Mostrar página de éxito
   res.send(`
         <html>
             <body style="display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background-color: #f0f2f5;">
@@ -106,6 +78,46 @@ app.get("/payment/failure", (req, res) => {
         </html>
     `);
 });
+
+// Función común para procesar el pago
+async function processPayment(data) {
+  try {
+    const userId = await mercadoPagoService.handlePaymentWebhook(data);
+
+    if (userId) {
+      console.log(`Processing successful payment for user ${userId}`);
+
+      try {
+        // Actualizar suscripción
+        await supabaseService.updateUserSubscription(userId, true);
+        console.log(`Subscription updated successfully for user ${userId}`);
+
+        // Enviar mensaje de confirmación
+        try {
+          await bot.sendMessage(
+            userId,
+            "🎉 ¡Felicitaciones! Tu suscripción Premium ha sido activada.\n\n" +
+              "Beneficios activados:\n" +
+              "✨ Análisis nutricional detallado\n" +
+              "📊 Estadísticas avanzadas\n" +
+              "🎯 Seguimiento de objetivos\n" +
+              "💪 Recomendaciones personalizadas\n\n" +
+              "¡Gracias por confiar en QueComí! 🙌"
+          );
+          console.log(`Confirmation message sent to user ${userId}`);
+        } catch (messageError) {
+          console.error("Error sending confirmation message:", messageError);
+        }
+      } catch (updateError) {
+        console.error("Error updating subscription:", updateError);
+      }
+    } else {
+      console.log("No valid user ID found in payment data");
+    }
+  } catch (error) {
+    console.error("Error processing payment:", error);
+  }
+}
 
 // Listen on the port
 app.listen(config.server.port, () => {
